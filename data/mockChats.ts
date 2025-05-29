@@ -1,4 +1,4 @@
-import type { Chat, Message } from '../contexts/ChatContext';
+import type { Chat, Message } from '@/contexts/ChatContext'; // Corrected path
 
 export const mockChats: Chat[] = [
   {

@@ -13,6 +13,7 @@ interface ButtonProps {
   loading?: boolean;
   icon?: React.ReactNode;
   fullWidth?: boolean;
+  style?: object; // Added to allow passing custom styles
 }
 
 export function Button({
@@ -24,6 +25,7 @@ export function Button({
   loading = false,
   icon,
   fullWidth = false,
+  style = {},
 }: ButtonProps) {
   const buttonStyles = [
     styles.base,
@@ -31,6 +33,7 @@ export function Button({
     styles[size],
     fullWidth && styles.fullWidth,
     disabled && styles.disabled,
+    style, // Apply custom styles
   ];
 
   const textStyles = [
@@ -50,8 +53,8 @@ export function Button({
       <View style={styles.content}>
         {loading ? (
           <ActivityIndicator
-            color={variant === 'primary' ? '#FFFFFF' : '#3B82F6'}
-            style={styles.spinner}
+            color={variant === 'primary' ? '#FFFFFF' : '#3B82F6'} // Adjusted spinner color for better visibility
+            style={icon ? styles.spinnerWithIcon : styles.spinnerOnly} // Adjust spinner margin based on icon presence
           />
         ) : (
           <>
@@ -69,6 +72,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row', // Ensure icon and text are in a row by default on the button itself
   },
   content: {
     flexDirection: 'row',
@@ -91,7 +95,7 @@ const styles = StyleSheet.create({
   outline: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#3B82F6',
+    borderColor: '#CBD5E1', // Softer border for outline
   },
   ghost: {
     backgroundColor: 'transparent',
@@ -111,7 +115,8 @@ const styles = StyleSheet.create({
   },
   // States
   disabled: {
-    opacity: 0.5,
+    backgroundColor: '#E2E8F0', // More prominent disabled state
+    opacity: 0.7, // Keep opacity for text and icon
   },
   // Text styles
   text: {
@@ -125,7 +130,7 @@ const styles = StyleSheet.create({
     color: '#3B82F6',
   },
   outlineText: {
-    color: '#3B82F6',
+    color: '#374151', // Darker text for outline for better readability
   },
   ghostText: {
     color: '#3B82F6',
@@ -140,9 +145,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   disabledText: {
-    opacity: 0.7,
+    // For primary disabled button, text should remain white or light gray
+    // For other variants, adjust as needed. Assuming disabled style handles button background.
+     color: '#94A3B8',
   },
-  spinner: {
+  spinnerWithIcon: {
     marginRight: 8,
+  },
+  spinnerOnly: {
+    // No margin if only spinner is shown
   },
 }); 

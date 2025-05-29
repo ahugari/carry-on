@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, Text } from 'react-native';
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Search as SearchIcon, MapPin, Calendar, Package, Filter, Star } from 'lucide-react-native';
-import { Input } from '../components/ui/Input';
-import { Button } from '../components/ui/Button';
-import { Card } from '../components/ui/Card';
+import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
 
 type VerificationLevel = 'basic' | 'verified' | 'premium';
 
@@ -64,6 +64,7 @@ type SearchParams = {
 };
 
 export default function SearchScreen() {
+  const router = useRouter();
   const [searchParams, setSearchParams] = useState<SearchParams>({
     departure: '',
     arrival: '',
@@ -79,10 +80,7 @@ export default function SearchScreen() {
   };
 
   const handleSharerPress = (id: string) => {
-    router.push({
-      pathname: '/sharer/[id]',
-      params: { id },
-    });
+    router.push(`/sharer/${id}`);
   };
 
   return (

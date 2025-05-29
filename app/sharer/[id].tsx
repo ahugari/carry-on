@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
+import { router } from 'expo-router';
 import {
   ArrowLeft,
   Star,
@@ -19,7 +19,7 @@ import {
   Calendar,
   ChevronRight,
 } from 'lucide-react-native';
-import { Button } from '../components/ui/Button';
+import { Button } from '@/components/ui/Button';
 
 type VerificationLevel = 'basic' | 'verified' | 'premium';
 
@@ -111,21 +111,16 @@ const MOCK_SHARER: SharerProfile = {
 };
 
 export default function SharerProfileScreen() {
-  const { id } = useLocalSearchParams();
+  const params = router.getParams();
+  const id = params?.id;
   const [selectedTrip, setSelectedTrip] = useState<string | null>(null);
 
   const handleContact = () => {
-    router.push({
-      pathname: '/(chat)/[id]',
-      params: { id },
-    });
+    router.push(`/(chat)/${id}`);
   };
 
   const handleBookTrip = (tripId: string) => {
-    router.push({
-      pathname: '/(trip)/book/[id]',
-      params: { id: tripId },
-    });
+    router.push(`/(trip)/book/${tripId}`);
   };
 
   const renderVerificationBadge = () => {

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from './AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { mockChats, mockMessages } from '@/data/mockChats';
 
 export type Message = {
   id: string;
@@ -49,6 +50,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     if (session?.user.id) {
       loadChats();
       subscribeToChats();
+    } else {
+      // Use mock data when not logged in or no real data
+      setChats(mockChats);
     }
   }, [session?.user.id]);
 
@@ -71,7 +75,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
       if (error) throw error;
 
-      const formattedChats: Chat[] = (data || []).map(chat => ({
+      if (!data || data.length === 0) {
+        // Use mock data if no real chats exist
+        setChats(mockChats);
+        return;
+      }
+
+      const formattedChats: Chat[] = data.map(chat => ({
         id: chat.id,
         user: {
           id: chat.user[0].id,
@@ -85,6 +95,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       setChats(formattedChats);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load chats');
+      // Use mock data on error
+      setChats(mockChats);
     } finally {
       setLoading(false);
     }
@@ -101,9 +113,17 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
       if (error) throw error;
 
-      setMessages(data || []);
+      if (!data || data.length === 0) {
+        // Use mock messages if no real messages exist
+        setMessages(mockMessages[chatId] || []);
+        return;
+      }
+
+      setMessages(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load messages');
+      // Use mock messages on error
+      setMessages(mockMessages[chatId] || []);
     } finally {
       setLoading(false);
     }
@@ -148,7 +168,23 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   };
 
   const sendMessage = async (content: string, imageUrl?: string) => {
-    if (!currentChat || !session) return;
+    if (!currentChat || !session) {
+      // For mock data, just add the message locally
+      if (currentChat) {
+        const newMessage: Message = {
+          id: `mock_${Date.now()}`,
+          sender_id: 'current_user',
+          receiver_id: currentChat.user.id,
+          content,
+          image_url: imageUrl,
+          created_at: new Date().toISOString(),
+          read: false,
+        };
+        setMessages(prev => [...prev, newMessage]);
+        return;
+      }
+      return;
+    }
 
     try {
       const { error } = await supabase.from('messages').insert({
@@ -166,12 +202,21 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   };
 
   const markAsRead = async (chatId: string) => {
+    if (!session) {
+      // For mock data, just mark messages as read locally
+      setMessages(prev => prev.map(msg => ({
+        ...msg,
+        read: true,
+      })));
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('messages')
         .update({ read: true })
         .eq('chat_id', chatId)
-        .eq('receiver_id', session!.user.id)
+        .eq('receiver_id', session.user.id)
         .eq('read', false);
 
       if (error) throw error;
@@ -198,10 +243,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useChat() {
+export const useChat = () => {
   const context = useContext(ChatContext);
   if (context === undefined) {
     throw new Error('useChat must be used within a ChatProvider');
   }
   return context;
-} 
+}; 

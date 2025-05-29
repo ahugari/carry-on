@@ -57,12 +57,17 @@ export function ReportModal({ isVisible, onClose, targetId, targetType }: Report
 
     setIsSubmitting(true);
     try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        throw new Error('User not authenticated for reporting');
+      }
+
       const { error } = await supabase.from('reports').insert({
         target_id: targetId,
         target_type: targetType,
         reason: selectedReason,
         additional_info: additionalInfo,
-        reporter_id: supabase.auth.user()?.id,
+        reporter_id: user.id, // Use user.id from getUser()
         status: 'pending',
       });
 
@@ -73,8 +78,10 @@ export function ReportModal({ isVisible, onClose, targetId, targetType }: Report
         'Thank you for helping keep our community safe. We will review your report.',
         [{ text: 'OK', onPress: onClose }]
       );
+      setSelectedReason(''); // Clear form
+      setAdditionalInfo('');
     } catch (error) {
-      Alert.alert('Error', 'Failed to submit report. Please try again.');
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to submit report. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -90,7 +97,7 @@ export function ReportModal({ isVisible, onClose, targetId, targetType }: Report
       <View style={styles.overlay}>
         <View style={styles.container}>
           <View style={styles.header}>
-            <Text style={styles.title}>Report</Text>
+            <Text style={styles.title}>Report {targetType}</Text>
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
               <X size={24} color="#64748B" />
             </TouchableOpacity>
@@ -125,10 +132,10 @@ export function ReportModal({ isVisible, onClose, targetId, targetType }: Report
               </TouchableOpacity>
             ))}
 
-            <Text style={styles.sectionTitle}>Additional Information</Text>
+            <Text style={styles.sectionTitle}>Additional Information (Optional)</Text>
             <TextInput
               style={styles.input}
-              placeholder="Please provide any additional details that will help us investigate"
+              placeholder="Provide any additional details that will help us investigate..."
               multiline
               numberOfLines={4}
               value={additionalInfo}
@@ -142,15 +149,17 @@ export function ReportModal({ isVisible, onClose, targetId, targetType }: Report
               variant="outline"
               onPress={onClose}
               disabled={isSubmitting}
+              style={{ flex: 1, marginRight: 8 }}
             >
               Cancel
             </Button>
-            <View style={styles.footerSpacer} />
+            
             <Button
               variant="primary"
               onPress={handleSubmit}
               loading={isSubmitting}
-              disabled={!selectedReason}
+              disabled={!selectedReason || isSubmitting}
+              style={{ flex: 1, marginLeft: 8 }}
             >
               Submit Report
             </Button>
@@ -172,6 +181,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '90%',
+    paddingBottom: 20, // Added padding for safety area / home indicator
   },
   header: {
     flexDirection: 'row',
@@ -185,12 +195,14 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-SemiBold',
     fontSize: 18,
     color: '#1F2937',
+    textTransform: 'capitalize',
   },
   closeButton: {
     padding: 4,
   },
   content: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
   warningBox: {
     flexDirection: 'row',
@@ -198,6 +210,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     marginBottom: 24,
+    alignItems: 'center',
   },
   warningText: {
     flex: 1,
@@ -213,7 +226,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   reasonButton: {
-    paddingVertical: 12,
+    paddingVertical: 14, // Increased touch target
     paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -242,15 +255,15 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     borderRadius: 8,
     padding: 12,
-    height: 120,
+    minHeight: 100, // Changed from height to minHeight for better multiline
+    textAlignVertical: 'top',
+    marginBottom: 24, // Added margin for spacing
   },
   footer: {
     flexDirection: 'row',
     padding: 16,
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
-  },
-  footerSpacer: {
-    width: 12,
+    justifyContent: 'space-between',
   },
 }); 

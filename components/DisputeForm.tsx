@@ -172,6 +172,7 @@ export function DisputeForm({ tripId, otherUserId, onSubmit, onCancel }: Dispute
       <View style={styles.evidenceContainer}>
         {evidenceUrls.map((url, index) => (
           <View key={index} style={styles.evidenceItem}>
+            {/* TODO: Render image preview */}
             <TouchableOpacity
               style={styles.removeButton}
               onPress={() => setEvidenceUrls((prev) => prev.filter((_, i) => i !== index))}
@@ -254,7 +255,7 @@ const styles = StyleSheet.create({
   },
   categoryDescription: {
     fontFamily: 'Inter-Regular',
-    fontSize: 14,
+    fontSize: 12,
     color: '#64748B',
   },
   input: {
@@ -266,10 +267,12 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     borderRadius: 8,
     padding: 12,
-    marginBottom: 24,
+    height: 48,
+    marginBottom: 16,
   },
   textArea: {
-    height: 120,
+    height: 100,
+    paddingTop: 12,
   },
   evidenceContainer: {
     flexDirection: 'row',
@@ -277,13 +280,17 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   evidenceItem: {
-    width: 100,
-    height: 100,
-    backgroundColor: '#F1F5F9',
+    width: 80,
+    height: 80,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     marginRight: 8,
     marginBottom: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
     position: 'relative',
+    backgroundColor: '#F1F5F9', // Placeholder background
   },
   removeButton: {
     position: 'absolute',
@@ -291,29 +298,30 @@ const styles = StyleSheet.create({
     right: 4,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    padding: 4,
+    padding: 2,
   },
   addButton: {
-    width: 100,
-    height: 100,
-    backgroundColor: '#F8FAFC',
+    width: 80,
+    height: 80,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
+    borderStyle: 'dashed',
   },
   addButtonText: {
     fontFamily: 'Inter-Medium',
-    fontSize: 14,
+    fontSize: 12,
     color: '#64748B',
-    marginTop: 8,
+    marginTop: 4,
   },
   footer: {
     flexDirection: 'row',
-    marginTop: 24,
+    justifyContent: 'flex-end',
+    marginTop: 16,
   },
   footerSpacer: {
-    width: 12,
+    width: 8,
   },
 }); 
