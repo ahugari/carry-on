@@ -1,229 +1,31 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Settings, Star, ShieldCheck, MessageSquare, Clock, CreditCard, CircleHelp as HelpCircle, LogOut, ChevronRight, Camera } from 'lucide-react-native';
-import * as ImagePicker from 'expo-image-picker';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
+import { Settings, Star, ShieldCheck, MessageSquare, Clock, CreditCard, CircleHelp as HelpCircle, LogOut, ChevronRight } from 'lucide-react-native';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { profile, signOut, loading: authLoading } = useAuth();
-  const [isEditing, setIsEditing] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [stats, setStats] = useState({
-    trips: 0,
-    items_delivered: 0,
-    earnings: 0,
-  });
+  const [userRating, setUserRating] = useState(4.8);
+  const [totalReviews, setTotalReviews] = useState(24);
+  const [isVerified, setIsVerified] = useState(true);
   
-  // Form state
-  const [fullName, setFullName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('');
-
-  useEffect(() => {
-    if (profile) {
-      setFullName(profile.full_name || '');
-      setPhone(profile.phone || '');
-      setAddress(profile.address || '');
-      setAvatarUrl(profile.avatar_url || '');
-      loadUserStats();
-    }
-  }, [profile]);
-
-  const loadUserStats = async () => {
-    if (!profile?.id) return;
-
-    try {
-      // Get completed trips where user is either carrier or sender
-      const { data: completedTrips, error: tripError } = await supabase
-        .from('trips')
-        .select('id, payment_amount')
-        .or(`carrier_id.eq.${profile.id},sender_id.eq.${profile.id}`)
-        .eq('status', 'completed');
-
-      if (tripError) throw tripError;
-
-      // Get delivered items where user is the carrier
-      const { data: deliveredItems, error: itemError } = await supabase
-        .from('items')
-        .select('id')
-        .eq('carrier_id', profile.id)
-        .eq('status', 'delivered');
-
-      if (itemError) throw itemError;
-
-      // Calculate total earnings from completed trips
-      const totalEarnings = completedTrips?.reduce((sum, trip) => {
-        return sum + (trip.payment_amount || 0);
-      }, 0) || 0;
-
-      setStats({
-        trips: completedTrips?.length || 0,
-        items_delivered: deliveredItems?.length || 0,
-        earnings: totalEarnings,
-      });
-    } catch (error) {
-      console.error('Error loading user stats:', error);
-      setError(error instanceof Error ? error.message : 'Failed to load stats');
-    }
-  };
-
-  const handleImagePick = async () => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0].uri) {
-        setLoading(true);
-        setError(null);
-
-        if (!profile?.id) {
-          throw new Error('User profile not found');
-        }
-
-        // Upload image to Supabase Storage
-        const uri = result.assets[0].uri;
-        const fileName = uri.split('/').pop() || '';
-        const fileExt = fileName.split('.').pop()?.toLowerCase() || '';
-        const filePath = `${profile.id}/avatar.${fileExt}`;
-
-        // Convert uri to blob
-        const response = await fetch(uri);
-        const blob = await response.blob();
-
-        // Upload to storage
-        const { error: uploadError } = await supabase.storage
-          .from('avatars')
-          .upload(filePath, blob, {
-            contentType: `image/${fileExt}`,
-            upsert: true,
-          });
-
-        if (uploadError) throw uploadError;
-
-        // Get public URL
-        const { data: { publicUrl } } = supabase.storage
-          .from('avatars')
-          .getPublicUrl(filePath);
-
-        // Update profile
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({ avatar_url: publicUrl })
-          .eq('id', profile.id);
-
-        if (updateError) throw updateError;
-
-        setAvatarUrl(publicUrl);
-      }
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      setError(error instanceof Error ? error.message : 'Error uploading image');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSave = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      if (!profile?.id) {
-        throw new Error('User profile not found');
-      }
-
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({
-          full_name: fullName,
-          phone,
-          address,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', profile.id);
-
-      if (updateError) throw updateError;
-      setIsEditing(false);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to update profile');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut();
-      router.replace('/(auth)/login');
-    } catch (error) {
-      console.error('Error signing out:', error);
-      setError(error instanceof Error ? error.message : 'Failed to sign out');
-    }
-  };
-
-  const handleNavigation = (route: string) => {
-    router.push(route as any);
-  };
-  
-  if (authLoading || !profile) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3B82F6" />
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View style={styles.profileInfo}>
-            <TouchableOpacity 
-              style={styles.profileImageContainer} 
-              onPress={isEditing ? handleImagePick : undefined}
-              disabled={!isEditing || loading}
-            >
-              {avatarUrl ? (
-                <Image source={{ uri: avatarUrl }} style={styles.profileImage} />
-              ) : (
-                <View style={styles.profileImagePlaceholder}>
-                  <Camera size={24} color="#94A3B8" />
-                </View>
-              )}
-              {isEditing && (
-                <View style={styles.editOverlay}>
-                  <Camera size={16} color="#FFFFFF" />
-                </View>
-              )}
-            </TouchableOpacity>
+            <Image 
+              source={{ uri: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2' }} 
+              style={styles.profileImage} 
+            />
             <View style={styles.nameContainer}>
-              {isEditing ? (
-                <TextInput
-                  style={styles.nameInput}
-                  value={fullName}
-                  onChangeText={setFullName}
-                  placeholder="Enter your name"
-                  placeholderTextColor="#94A3B8"
-                  editable={!loading}
-                />
-              ) : (
-                <Text style={styles.name}>{profile.full_name || 'Add your name'}</Text>
-              )}
+              <Text style={styles.name}>Alex Johnson</Text>
               <View style={styles.ratingContainer}>
                 <Star size={16} color="#FACC15" fill="#FACC15" />
-                <Text style={styles.rating}>{profile.rating?.toFixed(1) || '0.0'} · {profile.total_reviews || 0} reviews</Text>
+                <Text style={styles.rating}>{userRating} · {totalReviews} reviews</Text>
               </View>
-              {profile.verification_status?.email && (
+              {isVerified && (
                 <View style={styles.verifiedBadge}>
                   <ShieldCheck size={12} color="#3B82F6" />
                   <Text style={styles.verifiedText}>Verified</Text>
@@ -231,189 +33,132 @@ export default function ProfileScreen() {
               )}
             </View>
           </View>
-          {!isEditing && (
-            <TouchableOpacity 
-              style={styles.settingsButton}
-              onPress={() => setIsEditing(true)}
-              disabled={loading}
-            >
-              <Settings size={24} color="#1F2937" />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity 
+            style={styles.settingsButton}
+            onPress={() => router.push('/settings')}
+          >
+            <Settings size={24} color="#1F2937" />
+          </TouchableOpacity>
         </View>
-
-        {error && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        )}
       </View>
       
       <ScrollView style={styles.content}>
-        {isEditing ? (
-          <View style={styles.editForm}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Phone Number</Text>
-              <TextInput
-                style={styles.input}
-                value={phone}
-                onChangeText={setPhone}
-                placeholder="Enter your phone number"
-                placeholderTextColor="#94A3B8"
-                keyboardType="phone-pad"
-                editable={!loading}
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Address</Text>
-              <TextInput
-                style={styles.input}
-                value={address}
-                onChangeText={setAddress}
-                placeholder="Enter your address"
-                placeholderTextColor="#94A3B8"
-                editable={!loading}
-              />
-            </View>
-
-            <View style={styles.editActions}>
-              <TouchableOpacity 
-                style={styles.cancelButton}
-                onPress={() => {
-                  setIsEditing(false);
-                  setFullName(profile.full_name || '');
-                  setPhone(profile.phone || '');
-                  setAddress(profile.address || '');
-                  setAvatarUrl(profile.avatar_url || '');
-                }}
-                disabled={loading}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={[styles.saveButton, loading && styles.saveButtonDisabled]}
-                onPress={handleSave}
-                disabled={loading}
-              >
-                <Text style={styles.saveButtonText}>
-                  {loading ? 'Saving...' : 'Save Changes'}
-                </Text>
-              </TouchableOpacity>
-            </View>
+        {/* Stats */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>12</Text>
+            <Text style={styles.statLabel}>Trips</Text>
           </View>
-        ) : (
-          <>
-            {/* Stats */}
-            <View style={styles.statsContainer}>
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>{stats.trips}</Text>
-                <Text style={styles.statLabel}>Trips</Text>
-              </View>
-              <View style={[styles.statItem, styles.statBorder]}>
-                <Text style={styles.statValue}>{stats.items_delivered}</Text>
-                <Text style={styles.statLabel}>Items Delivered</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>${stats.earnings.toFixed(0)}</Text>
-                <Text style={styles.statLabel}>Earned</Text>
-              </View>
-            </View>
-            
-            {/* Menu Sections */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Account</Text>
-              
-              <View style={styles.menuContainer}>
-                <TouchableOpacity 
-                  style={styles.menuItem}
-                  onPress={() => router.push('/(tabs)/messages')}
-                >
-                  <View style={styles.menuIconContainer}>
-                    <MessageSquare size={20} color="#3B82F6" />
-                  </View>
-                  <Text style={styles.menuText}>Messages</Text>
-                  <ChevronRight size={20} color="#94A3B8" />
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.menuItem}
-                  onPress={() => router.push('/trip-history')}
-                >
-                  <View style={styles.menuIconContainer}>
-                    <Clock size={20} color="#3B82F6" />
-                  </View>
-                  <Text style={styles.menuText}>Trip History</Text>
-                  <ChevronRight size={20} color="#94A3B8" />
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.menuItem}
-                  onPress={() => router.push('/(settings)/reviews')}
-                >
-                  <View style={styles.menuIconContainer}>
-                    <Star size={20} color="#3B82F6" />
-                  </View>
-                  <Text style={styles.menuText}>Reviews</Text>
-                  <ChevronRight size={20} color="#94A3B8" />
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.menuItem}
-                  onPress={() => router.push('/(settings)/payment-methods')}
-                >
-                  <View style={styles.menuIconContainer}>
-                    <CreditCard size={20} color="#3B82F6" />
-                  </View>
-                  <Text style={styles.menuText}>Payment Methods</Text>
-                  <ChevronRight size={20} color="#94A3B8" />
-                </TouchableOpacity>
-              </View>
-            </View>
-            
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Support</Text>
-              
-              <View style={styles.menuContainer}>
-                <TouchableOpacity 
-                  style={styles.menuItem}
-                  onPress={() => router.push('/(settings)/help-center')}
-                >
-                  <View style={styles.menuIconContainer}>
-                    <HelpCircle size={20} color="#3B82F6" />
-                  </View>
-                  <Text style={styles.menuText}>Help Center</Text>
-                  <ChevronRight size={20} color="#94A3B8" />
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.menuItem}
-                  onPress={() => router.push('/(settings)/trust-safety')}
-                >
-                  <View style={styles.menuIconContainer}>
-                    <ShieldCheck size={20} color="#3B82F6" />
-                  </View>
-                  <Text style={styles.menuText}>Trust & Safety</Text>
-                  <ChevronRight size={20} color="#94A3B8" />
-                </TouchableOpacity>
-              </View>
-            </View>
-            
-            {/* Log Out Button */}
+          <View style={[styles.statItem, styles.statBorder]}>
+            <Text style={styles.statValue}>8</Text>
+            <Text style={styles.statLabel}>Items Delivered</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>$420</Text>
+            <Text style={styles.statLabel}>Earned</Text>
+          </View>
+        </View>
+        
+        {/* Edit Profile Button */}
+        <TouchableOpacity 
+          style={styles.editProfileButton}
+          onPress={() => router.push('/edit-profile')}
+        >
+          <Text style={styles.editProfileText}>Edit Profile</Text>
+        </TouchableOpacity>
+        
+        {/* Menu Sections */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Account</Text>
+          
+          <View style={styles.menuContainer}>
             <TouchableOpacity 
-              style={styles.logoutButton}
-              onPress={handleLogout}
-              disabled={loading}
+              style={styles.menuItem}
+              onPress={() => router.push('/(tabs)/messages')}
             >
-              <LogOut size={20} color="#EF4444" />
-              <Text style={styles.logoutText}>Log Out</Text>
+              <View style={styles.menuIconContainer}>
+                <MessageSquare size={20} color="#3B82F6" />
+              </View>
+              <Text style={styles.menuText}>Messages</Text>
+              <ChevronRight size={20} color="#94A3B8" />
             </TouchableOpacity>
             
-            {/* Version Info */}
-            <Text style={styles.versionText}>Version 1.0.0</Text>
-          </>
-        )}
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => router.push('/(tabs)/trips')}
+            >
+              <View style={styles.menuIconContainer}>
+                <Clock size={20} color="#3B82F6" />
+              </View>
+              <Text style={styles.menuText}>Trip History</Text>
+              <ChevronRight size={20} color="#94A3B8" />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => router.push('/(settings)/reviews')}
+            >
+              <View style={styles.menuIconContainer}>
+                <Star size={20} color="#3B82F6" />
+              </View>
+              <Text style={styles.menuText}>Reviews</Text>
+              <ChevronRight size={20} color="#94A3B8" />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => router.push('/(settings)/payment-methods')}
+            >
+              <View style={styles.menuIconContainer}>
+                <CreditCard size={20} color="#3B82F6" />
+              </View>
+              <Text style={styles.menuText}>Payment Methods</Text>
+              <ChevronRight size={20} color="#94A3B8" />
+            </TouchableOpacity>
+          </View>
+        </View>
+        
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Support</Text>
+          
+          <View style={styles.menuContainer}>
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => router.push('/(settings)/help-center')}
+            >
+              <View style={styles.menuIconContainer}>
+                <HelpCircle size={20} color="#3B82F6" />
+              </View>
+              <Text style={styles.menuText}>Help Center</Text>
+              <ChevronRight size={20} color="#94A3B8" />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => router.push('/(settings)/trust-safety')}
+            >
+              <View style={styles.menuIconContainer}>
+                <ShieldCheck size={20} color="#3B82F6" />
+              </View>
+              <Text style={styles.menuText}>Trust & Safety</Text>
+              <ChevronRight size={20} color="#94A3B8" />
+            </TouchableOpacity>
+          </View>
+        </View>
+        
+        {/* Log Out Button */}
+        <TouchableOpacity 
+          style={styles.logoutButton}
+          onPress={() => {
+            // TODO: Implement logout functionality
+          }}
+        >
+          <LogOut size={20} color="#EF4444" />
+          <Text style={styles.logoutText}>Log Out</Text>
+        </TouchableOpacity>
+        
+        {/* Version Info */}
+        <Text style={styles.versionText}>Version 1.0.0</Text>
         
         {/* Bottom padding for tab bar */}
         <View style={{ height: 80 }} />
@@ -425,12 +170,6 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     backgroundColor: '#F8FAFC',
   },
   header: {
@@ -450,33 +189,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  profileImageContainer: {
+  profileImage: {
     width: 64,
     height: 64,
     borderRadius: 32,
     marginRight: 16,
-    position: 'relative',
-  },
-  profileImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 32,
-  },
-  profileImagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 32,
-    backgroundColor: '#F1F5F9',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  editOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: '#3B82F6',
-    borderRadius: 12,
-    padding: 4,
   },
   nameContainer: {
     justifyContent: 'center',
@@ -486,13 +203,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: '#1F2937',
     marginBottom: 4,
-  },
-  nameInput: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 20,
-    color: '#1F2937',
-    marginBottom: 4,
-    padding: 0,
   },
   ratingContainer: {
     flexDirection: 'row',
@@ -528,79 +238,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  errorContainer: {
-    backgroundColor: '#FEE2E2',
-    marginHorizontal: 16,
-    marginTop: 12,
-    padding: 12,
-    borderRadius: 8,
-  },
-  errorText: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    color: '#EF4444',
-  },
   content: {
     flex: 1,
-  },
-  editForm: {
-    padding: 16,
-  },
-  inputContainer: {
-    marginBottom: 16,
-  },
-  inputLabel: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 14,
-    color: '#1F2937',
-    marginBottom: 8,
-  },
-  input: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 16,
-    color: '#1F2937',
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 8,
-    padding: 12,
-    height: 48,
-  },
-  editActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 24,
-  },
-  cancelButton: {
-    flex: 1,
-    height: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 8,
-    marginRight: 8,
-  },
-  cancelButtonText: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 16,
-    color: '#64748B',
-  },
-  saveButton: {
-    flex: 1,
-    height: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#3B82F6',
-    borderRadius: 8,
-    marginLeft: 8,
-  },
-  saveButtonDisabled: {
-    backgroundColor: '#93C5FD',
-  },
-  saveButtonText: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 16,
-    color: '#FFFFFF',
   },
   statsContainer: {
     flexDirection: 'row',
@@ -609,7 +248,10 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginHorizontal: 16,
     borderRadius: 12,
-    boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.05)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
     elevation: 2,
   },
   statItem: {
@@ -632,6 +274,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
   },
+  editProfileButton: {
+    backgroundColor: '#3B82F6',
+    borderRadius: 8,
+    marginHorizontal: 16,
+    marginTop: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  editProfileText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 16,
+    color: '#FFFFFF',
+  },
   section: {
     marginTop: 24,
     paddingHorizontal: 16,
@@ -646,7 +301,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     overflow: 'hidden',
-    boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.05)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
     elevation: 2,
   },
   menuItem: {

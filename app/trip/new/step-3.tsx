@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Check, AlertTriangle, Shield } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,6 +16,7 @@ const ITEM_CATEGORIES = [
 ];
 
 export default function TripStep3Screen() {
+  const router = useRouter();
   const params = useLocalSearchParams();
   const { session } = useAuth();
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -75,7 +76,7 @@ export default function TripStep3Screen() {
         [
           {
             text: 'OK',
-            onPress: () => router.replace('/(tabs)')
+            onPress: () => router.replace('/(tabs)/trips')
           }
         ]
       );

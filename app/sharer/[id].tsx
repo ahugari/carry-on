@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
-import { router } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ArrowLeft,
   Star,
@@ -111,8 +111,8 @@ const MOCK_SHARER: SharerProfile = {
 };
 
 export default function SharerProfileScreen() {
-  const params = router.getParams();
-  const id = params?.id;
+  const { id } = useLocalSearchParams();
+  const router = useRouter();
   const [selectedTrip, setSelectedTrip] = useState<string | null>(null);
 
   const handleContact = () => {

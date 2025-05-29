@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native';
-import { Mail, MessageSquare, Phone, ChevronRight } from 'lucide-react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Linking } from 'react-native';
+import { Search, ChevronRight, MessageSquare, Book, ShieldCheck, CreditCard, Mail, Phone } from 'lucide-react-native';
 
 const SUPPORT_EMAIL = 'support@carryon.com';
 const SUPPORT_PHONE = '+1 (555) 123-4567';
@@ -48,6 +48,65 @@ export default function HelpCenterScreen() {
 
   return (
     <ScrollView style={styles.container}>
+      <View style={styles.searchContainer}>
+        <View style={styles.searchBar}>
+          <Search size={20} color="#64748B" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search help articles..."
+            placeholderTextColor="#94A3B8"
+          />
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Popular Topics</Text>
+        
+        <TouchableOpacity style={styles.topicItem}>
+          <View style={styles.topicIcon}>
+            <MessageSquare size={24} color="#3B82F6" />
+          </View>
+          <View style={styles.topicContent}>
+            <Text style={styles.topicTitle}>Getting Started</Text>
+            <Text style={styles.topicDescription}>Learn how to use the app and create your first trip</Text>
+          </View>
+          <ChevronRight size={20} color="#94A3B8" />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.topicItem}>
+          <View style={styles.topicIcon}>
+            <Book size={24} color="#3B82F6" />
+          </View>
+          <View style={styles.topicContent}>
+            <Text style={styles.topicTitle}>Booking Process</Text>
+            <Text style={styles.topicDescription}>Understanding how to book and manage trips</Text>
+          </View>
+          <ChevronRight size={20} color="#94A3B8" />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.topicItem}>
+          <View style={styles.topicIcon}>
+            <ShieldCheck size={24} color="#3B82F6" />
+          </View>
+          <View style={styles.topicContent}>
+            <Text style={styles.topicTitle}>Safety & Security</Text>
+            <Text style={styles.topicDescription}>Learn about our safety measures and policies</Text>
+          </View>
+          <ChevronRight size={20} color="#94A3B8" />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.topicItem}>
+          <View style={styles.topicIcon}>
+            <CreditCard size={24} color="#3B82F6" />
+          </View>
+          <View style={styles.topicContent}>
+            <Text style={styles.topicTitle}>Payments & Refunds</Text>
+            <Text style={styles.topicDescription}>Information about payments, fees, and refund policies</Text>
+          </View>
+          <ChevronRight size={20} color="#94A3B8" />
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Contact Support</Text>
         <View style={styles.supportOptions}>
@@ -121,15 +180,66 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
+  searchContainer: {
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    height: 48,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontFamily: 'Inter-Regular',
+    fontSize: 16,
+    color: '#1F2937',
+  },
   section: {
-    marginTop: 24,
-    paddingHorizontal: 16,
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    marginTop: 8,
   },
   sectionTitle: {
     fontFamily: 'Inter-SemiBold',
     fontSize: 18,
     color: '#1F2937',
-    marginBottom: 12,
+    marginBottom: 16,
+  },
+  topicItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  topicIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#EFF6FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  topicContent: {
+    flex: 1,
+    marginRight: 8,
+  },
+  topicTitle: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 16,
+    color: '#1F2937',
+    marginBottom: 2,
+  },
+  topicDescription: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 14,
+    color: '#64748B',
   },
   supportOptions: {
     backgroundColor: '#FFFFFF',

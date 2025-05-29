@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Platform } from 'react-native';
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Plane, Calendar, ArrowLeft, ArrowRight, MapPin } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 export default function TripStep1Screen() {
+  const router = useRouter();
   const [departureCity, setDepartureCity] = useState('');
   const [arrivalCity, setArrivalCity] = useState('');
   const [departureDate, setDepartureDate] = useState(new Date());
@@ -31,24 +32,54 @@ export default function TripStep1Screen() {
   };
 
   const handleDepartureDateChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowDeparturePicker(false);
-    }
+    const isWeb = Platform.OS === 'web';
+    setShowDeparturePicker(isWeb ? false : Platform.OS !== 'ios');
     
-    if (selectedDate) {
+    if (isWeb && event?.target?.value) {
+      const date = new Date(event.target.value);
+      // For web, we need to handle the time separately
+      date.setHours(departureDate.getHours(), departureDate.getMinutes());
+      setDepartureDate(date);
+      validateDates(date, arrivalDate);
+    } else if (selectedDate) {
       setDepartureDate(selectedDate);
       validateDates(selectedDate, arrivalDate);
     }
   };
 
-  const handleArrivalDateChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowArrivalPicker(false);
+  const handleDepartureTimeChange = (event: any) => {
+    if (Platform.OS === 'web' && event?.target?.value) {
+      const [hours, minutes] = event.target.value.split(':');
+      const newDate = new Date(departureDate);
+      newDate.setHours(parseInt(hours, 10), parseInt(minutes, 10));
+      setDepartureDate(newDate);
+      validateDates(newDate, arrivalDate);
     }
+  };
+
+  const handleArrivalDateChange = (event: any, selectedDate?: Date) => {
+    const isWeb = Platform.OS === 'web';
+    setShowArrivalPicker(isWeb ? false : Platform.OS !== 'ios');
     
-    if (selectedDate) {
+    if (isWeb && event?.target?.value) {
+      const date = new Date(event.target.value);
+      // For web, we need to handle the time separately
+      date.setHours(arrivalDate.getHours(), arrivalDate.getMinutes());
+      setArrivalDate(date);
+      validateDates(departureDate, date);
+    } else if (selectedDate) {
       setArrivalDate(selectedDate);
       validateDates(departureDate, selectedDate);
+    }
+  };
+
+  const handleArrivalTimeChange = (event: any) => {
+    if (Platform.OS === 'web' && event?.target?.value) {
+      const [hours, minutes] = event.target.value.split(':');
+      const newDate = new Date(arrivalDate);
+      newDate.setHours(parseInt(hours, 10), parseInt(minutes, 10));
+      setArrivalDate(newDate);
+      validateDates(departureDate, newDate);
     }
   };
 
@@ -62,22 +93,90 @@ export default function TripStep1Screen() {
     });
   };
 
+  const renderDateTimePicker = (
+    isArrival: boolean,
+    date: Date,
+    onDateChange: any,
+    onTimeChange: any
+  ) => {
+    const showPicker = isArrival ? showArrivalPicker : showDeparturePicker;
+    if (!showPicker) return null;
+
+    if (Platform.OS === 'web') {
+      const dateStr = date.toISOString().split('T')[0];
+      const timeStr = date.toTimeString().slice(0, 5);
+      const minDate = isArrival ? departureDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+
+      return (
+        <View style={styles.webDatePickerContainer}>
+          <View 
+            style={styles.webDatePickerOverlay} 
+            onTouchEnd={() => isArrival ? setShowArrivalPicker(false) : setShowDeparturePicker(false)} 
+          />
+          <View style={styles.webDatePickerContent}>
+            <Text style={styles.webDatePickerTitle}>
+              {isArrival ? 'Select Arrival Date & Time' : 'Select Departure Date & Time'}
+            </Text>
+            <View style={styles.webDateTimeInputs}>
+              <input
+                type="date"
+                value={dateStr}
+                onChange={onDateChange}
+                min={minDate}
+                style={{
+                  padding: 12,
+                  fontSize: 16,
+                  border: '1px solid #E2E8F0',
+                  borderRadius: 8,
+                  marginBottom: 12,
+                  width: '100%',
+                }}
+              />
+              <input
+                type="time"
+                value={timeStr}
+                onChange={onTimeChange}
+                style={{
+                  padding: 12,
+                  fontSize: 16,
+                  border: '1px solid #E2E8F0',
+                  borderRadius: 8,
+                  width: '100%',
+                }}
+              />
+            </View>
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <DateTimePicker
+        testID={isArrival ? "arrivalDatePicker" : "departureDatePicker"}
+        value={date}
+        mode="datetime"
+        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+        onChange={onDateChange}
+        minimumDate={isArrival ? departureDate : new Date()}
+      />
+    );
+  };
+
   const handleNext = () => {
     if (!departureCity) setDepartureCityError('Departure city is required');
     if (!arrivalCity) setArrivalCityError('Arrival city is required');
     
     if (departureCity && arrivalCity && !departureCityError && !arrivalCityError && !dateError) {
-      router.push({
-        pathname: '/trip/new/step-2',
-        params: {
-          departureCity,
-          arrivalCity,
-          departureDate: departureDate.toISOString(),
-          arrivalDate: arrivalDate.toISOString(),
-          airline,
-          flightNumber
-        }
+      const searchParams = new URLSearchParams({
+        departureCity,
+        arrivalCity,
+        departureDate: departureDate.toISOString(),
+        arrivalDate: arrivalDate.toISOString(),
+        airline,
+        flightNumber
       });
+      
+      router.push(`/trip/new/step-2?${searchParams.toString()}`);
     }
   };
 
@@ -163,24 +262,18 @@ export default function TripStep1Screen() {
           {dateError ? <Text style={styles.errorText}>{dateError}</Text> : null}
 
           {/* Date Pickers */}
-          {showDeparturePicker && (
-            <DateTimePicker
-              testID="departureDatePicker"
-              value={departureDate}
-              mode="datetime"
-              onChange={handleDepartureDateChange}
-              minimumDate={new Date()}
-            />
+          {renderDateTimePicker(
+            false,
+            departureDate,
+            handleDepartureDateChange,
+            handleDepartureTimeChange
           )}
           
-          {showArrivalPicker && (
-            <DateTimePicker
-              testID="arrivalDatePicker"
-              value={arrivalDate}
-              mode="datetime"
-              onChange={handleArrivalDateChange}
-              minimumDate={departureDate}
-            />
+          {renderDateTimePicker(
+            true,
+            arrivalDate,
+            handleArrivalDateChange,
+            handleArrivalTimeChange
           )}
 
           {/* Flight Details (Optional) */}
@@ -358,5 +451,45 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#FFFFFF',
     marginRight: 8,
+  },
+  webDatePickerContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  webDatePickerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  webDatePickerContent: {
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    width: '90%',
+    maxWidth: 400,
+  },
+  webDatePickerTitle: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 18,
+    color: '#1F2937',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  webDateTimeInputs: {
+    width: '100%',
   },
 });

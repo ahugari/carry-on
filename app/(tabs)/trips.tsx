@@ -74,13 +74,22 @@ export default function ActivitiesScreen() {
   const [loading, setLoading] = useState(true);
   const [activeStatus, setActiveStatus] = useState('all');
 
+  console.log('ActivitiesScreen: Initial profile:', profile);
+  console.log('ActivitiesScreen: Initial loading state:', loading);
+
   useEffect(() => {
+    console.log('ActivitiesScreen: useEffect triggered. Profile ID:', profile?.id);
     if (profile?.id) {
       loadActivities();
+    } else {
+      console.log('ActivitiesScreen: Profile ID not available, skipping loadActivities.');
+      // Potentially set loading to false if profile is definitively not going to be available
+      // For now, let AuthProvider handle the global loading state.
     }
   }, [profile?.id]);
 
   const loadActivities = async () => {
+    console.log('ActivitiesScreen: loadActivities started.');
     try {
       setLoading(true);
       // Load trips where user is either carrier or sender
@@ -132,11 +141,15 @@ export default function ActivitiesScreen() {
         offers: item.offers[0] || { count: 0 },
       }));
 
+      console.log('ActivitiesScreen: Transformed trips:', transformedTrips);
+      console.log('ActivitiesScreen: Transformed items:', transformedItems);
+
       setTrips(transformedTrips);
       setItems(transformedItems);
     } catch (error) {
-      console.error('Error loading activities:', error);
+      console.error('ActivitiesScreen: Error loading activities:', error);
     } finally {
+      console.log('ActivitiesScreen: loadActivities finished. Setting loading to false.');
       setLoading(false);
     }
   };
@@ -154,6 +167,8 @@ export default function ActivitiesScreen() {
   const isCarrier = (trip: Trip) => trip.carrier?.id === profile?.id;
   const isItemCarrier = (item: Item) => item.carrier?.id === profile?.id;
   
+  console.log('ActivitiesScreen: Rendering. Loading:', loading, 'Active Tab:', activeTab, 'Filtered Trips:', filteredTrips.length, 'Filtered Items:', filteredItems.length);
+
   return (
     <View style={styles.container}>
       {/* Header */}
