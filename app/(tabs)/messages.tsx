@@ -1,124 +1,104 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
-import { Check, CheckCheck, Search } from 'lucide-react-native';
-import { Link } from 'expo-router';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image } from 'react-native';
+import { Stack, useRouter } from 'expo-router';
+import { MessageCircle, User } from 'lucide-react-native';
+import { useChat, type Chat } from '@/contexts/ChatContext';
+import { formatDistanceToNow } from 'date-fns';
 
 export default function MessagesScreen() {
-  return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Messages</Text>
-        <TouchableOpacity style={styles.searchButton}>
-          <Search size={20} color="#1F2937" />
-        </TouchableOpacity>
-      </View>
-      
-      <ScrollView style={styles.content}>
-        {/* Message List */}
-        <View style={styles.listContainer}>
-          {conversations.length > 0 ? (
-            conversations.map(conversation => (
-              <Link key={conversation.id} href={`/messages/${conversation.id}`} asChild>
-                <TouchableOpacity style={styles.conversationItem}>
-                  <Image source={{ uri: conversation.user.image }} style={styles.userImage} />
-                  {conversation.unread && <View style={styles.unreadIndicator} />}
-                  
-                  <View style={styles.conversationContent}>
-                    <View style={styles.conversationHeader}>
-                      <Text style={styles.userName}>{conversation.user.name}</Text>
-                      <Text style={styles.messageTime}>{conversation.lastMessageTime}</Text>
-                    </View>
-                    
-                    <View style={styles.conversationPreview}>
-                      <Text 
-                        style={[styles.lastMessage, conversation.unread && styles.unreadMessage]}
-                        numberOfLines={1}
-                      >
-                        {conversation.lastMessage}
-                      </Text>
-                      
-                      {conversation.read && (
-                        conversation.read === 'delivered' ? 
-                          <Check size={16} color="#94A3B8" /> : 
-                          <CheckCheck size={16} color="#3B82F6" />
-                      )}
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              </Link>
-            ))
+  const router = useRouter();
+  const { chats, loading } = useChat();
+
+  const renderChatItem = ({ item }: { item: Chat }) => (
+    <TouchableOpacity
+      style={styles.chatItem}
+      onPress={() => router.push(`/chat/${item.id}`)}
+    >
+      {item.user.avatar_url ? (
+        <Image
+          source={{ uri: item.user.avatar_url }}
+          style={styles.avatar}
+        />
+      ) : (
+        <View style={[styles.avatar, styles.avatarPlaceholder]}>
+          <User size={24} color="#94A3B8" />
+        </View>
+      )}
+      <View style={styles.chatInfo}>
+        <View style={styles.chatHeader}>
+          <Text style={styles.userName}>{item.user.name}</Text>
+          {item.last_message && (
+            <Text style={styles.timestamp}>
+              {formatDistanceToNow(new Date(item.last_message.created_at), { addSuffix: true })}
+            </Text>
+          )}
+        </View>
+        <View style={styles.lastMessage}>
+          {item.last_message ? (
+            <Text style={styles.messageText} numberOfLines={1}>
+              {item.last_message.content}
+            </Text>
           ) : (
-            <View style={styles.emptyState}>
-              <Image
-                source={{ uri: 'https://images.pexels.com/photos/3867210/pexels-photo-3867210.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2' }}
-                style={styles.emptyStateImage}
-              />
-              <Text style={styles.emptyStateTitle}>No messages yet</Text>
-              <Text style={styles.emptyStateText}>
-                When you connect with other users, your conversations will appear here.
-              </Text>
+            <Text style={styles.noMessages}>No messages yet</Text>
+          )}
+          {item.unread_count > 0 && (
+            <View style={styles.unreadBadge}>
+              <Text style={styles.unreadCount}>{item.unread_count}</Text>
             </View>
           )}
         </View>
-        
-        {/* Bottom padding for tab bar */}
-        <View style={{ height: 80 }} />
-      </ScrollView>
+      </View>
+    </TouchableOpacity>
+  );
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text>Loading messages...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Messages</Text>
+      </View>
+
+      {!chats || chats.length === 0 ? (
+        <View style={styles.emptyState}>
+          <MessageCircle size={48} color="#94A3B8" />
+          <Text style={styles.emptyTitle}>No Messages Yet</Text>
+          <Text style={styles.emptyText}>
+            Your conversations with other users will appear here
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={chats}
+          renderItem={renderChatItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.chatList}
+        />
+      )}
     </View>
   );
 }
 
-// Sample conversation data
-const conversations = [
-  {
-    id: '1',
-    user: {
-      name: 'Michael Scott',
-      image: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
-    },
-    lastMessage: 'I\'m interested in sending my package with you to London. Is there still space available?',
-    lastMessageTime: '10:30 AM',
-    unread: true,
-    read: null,
-  },
-  {
-    id: '2',
-    user: {
-      name: 'Sophia Lee',
-      image: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
-    },
-    lastMessage: 'Perfect! I can meet you at the airport on Friday at 2 PM.',
-    lastMessageTime: 'Yesterday',
-    unread: false,
-    read: 'read',
-  },
-  {
-    id: '3',
-    user: {
-      name: 'Thomas Klein',
-      image: 'https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
-    },
-    lastMessage: 'Thanks for delivering my package safely. I just left you a 5-star review!',
-    lastMessageTime: 'Aug 5',
-    unread: false,
-    read: 'delivered',
-  },
-];
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
     paddingTop: 60,
     paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
   },
@@ -127,56 +107,34 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: '#1F2937',
   },
-  searchButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  chatList: {
+    padding: 16,
+  },
+  chatItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginRight: 12,
+  },
+  avatarPlaceholder: {
     backgroundColor: '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  content: {
+  chatInfo: {
     flex: 1,
   },
-  listContainer: {
-    padding: 16,
-  },
-  conversationItem: {
-    flexDirection: 'row',
-    padding: 12,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-    position: 'relative',
-  },
-  userImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 12,
-  },
-  unreadIndicator: {
-    position: 'absolute',
-    top: 12,
-    left: 46,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#3B82F6',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-  conversationContent: {
-    flex: 1,
-  },
-  conversationHeader: {
+  chatHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 4,
   },
   userName: {
@@ -184,48 +142,57 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1F2937',
   },
-  messageTime: {
+  timestamp: {
     fontFamily: 'Inter-Regular',
     fontSize: 12,
-    color: '#94A3B8',
-  },
-  conversationPreview: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    color: '#64748B',
   },
   lastMessage: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  messageText: {
     fontFamily: 'Inter-Regular',
     fontSize: 14,
     color: '#64748B',
     flex: 1,
-    marginRight: 4,
   },
-  unreadMessage: {
+  noMessages: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 14,
+    color: '#94A3B8',
+    fontStyle: 'italic',
+  },
+  unreadBadge: {
+    backgroundColor: '#3B82F6',
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: 8,
+  },
+  unreadCount: {
     fontFamily: 'Inter-Medium',
-    color: '#1F2937',
+    fontSize: 12,
+    color: '#FFFFFF',
   },
   emptyState: {
-    padding: 24,
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 16,
   },
-  emptyStateImage: {
-    width: 200,
-    height: 200,
-    borderRadius: 16,
-    marginBottom: 16,
-  },
-  emptyStateTitle: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 20,
+  emptyTitle: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 18,
     color: '#1F2937',
+    marginTop: 16,
     marginBottom: 8,
   },
-  emptyStateText: {
+  emptyText: {
     fontFamily: 'Inter-Regular',
-    fontSize: 16,
+    fontSize: 14,
     color: '#64748B',
     textAlign: 'center',
-    lineHeight: 24,
   },
 });

@@ -1,9 +1,52 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Linking } from 'react-native';
 import { router } from 'expo-router';
-import { ArrowLeft, Search, ChevronRight, MessageSquare, Book, ShieldCheck, CreditCard } from 'lucide-react-native';
+import { ArrowLeft, Search, ChevronRight, MessageSquare, Book, ShieldCheck, CreditCard, Mail, Phone } from 'lucide-react-native';
+
+const SUPPORT_EMAIL = 'support@carryon.com';
+const SUPPORT_PHONE = '+1 (555) 123-4567';
+
+interface FAQItem {
+  question: string;
+  answer: string;
+}
+
+const FAQs: FAQItem[] = [
+  {
+    question: 'How does CarryOn work?',
+    answer: 'CarryOn connects travelers with people who need items delivered. Travelers can earn money by delivering items along their planned routes, while senders save on shipping costs.',
+  },
+  {
+    question: 'How are items and payments protected?',
+    answer: 'All items are insured during transit, and payments are held in escrow until successful delivery. We also verify all users and have a comprehensive dispute resolution system.',
+  },
+  {
+    question: 'What items can be transported?',
+    answer: 'Legal items that comply with airline and customs regulations. Prohibited items include dangerous goods, illegal items, and items exceeding airline size/weight limits.',
+  },
+  {
+    question: 'How do I get paid?',
+    answer: 'Payments are processed through our secure payment system. Once delivery is confirmed, funds are released to your linked payment method within 1-2 business days.',
+  },
+  {
+    question: 'What if something goes wrong?',
+    answer: 'We have a dedicated support team and dispute resolution process. Contact us immediately if you encounter any issues, and we\'ll help resolve them.',
+  },
+];
 
 export default function HelpCenterScreen() {
+  const handleEmailSupport = () => {
+    Linking.openURL(`mailto:${SUPPORT_EMAIL}`);
+  };
+
+  const handlePhoneSupport = () => {
+    Linking.openURL(`tel:${SUPPORT_PHONE}`);
+  };
+
+  const handleChatSupport = () => {
+    // TODO: Implement in-app chat support
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -78,15 +121,67 @@ export default function HelpCenterScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Contact Support</Text>
-          
-          <TouchableOpacity style={styles.contactButton}>
-            <MessageSquare size={20} color="#FFFFFF" />
-            <Text style={styles.contactButtonText}>Chat with Support</Text>
-          </TouchableOpacity>
+          <View style={styles.supportOptions}>
+            <TouchableOpacity 
+              style={styles.supportOption}
+              onPress={handleEmailSupport}
+            >
+              <View style={styles.supportIconContainer}>
+                <Mail size={24} color="#3B82F6" />
+              </View>
+              <View style={styles.supportInfo}>
+                <Text style={styles.supportTitle}>Email Support</Text>
+                <Text style={styles.supportDetail}>{SUPPORT_EMAIL}</Text>
+              </View>
+              <ChevronRight size={20} color="#94A3B8" />
+            </TouchableOpacity>
 
-          <Text style={styles.supportText}>
-            Our support team is available 24/7 to help you with any questions or concerns.
-          </Text>
+            <TouchableOpacity 
+              style={styles.supportOption}
+              onPress={handlePhoneSupport}
+            >
+              <View style={styles.supportIconContainer}>
+                <Phone size={24} color="#3B82F6" />
+              </View>
+              <View style={styles.supportInfo}>
+                <Text style={styles.supportTitle}>Phone Support</Text>
+                <Text style={styles.supportDetail}>{SUPPORT_PHONE}</Text>
+              </View>
+              <ChevronRight size={20} color="#94A3B8" />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.supportOption}
+              onPress={handleChatSupport}
+            >
+              <View style={styles.supportIconContainer}>
+                <MessageSquare size={24} color="#3B82F6" />
+              </View>
+              <View style={styles.supportInfo}>
+                <Text style={styles.supportTitle}>Live Chat</Text>
+                <Text style={styles.supportDetail}>Available 24/7</Text>
+              </View>
+              <ChevronRight size={20} color="#94A3B8" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Frequently Asked Questions</Text>
+          <View style={styles.faqContainer}>
+            {FAQs.map((faq, index) => (
+              <View 
+                key={index} 
+                style={[
+                  styles.faqItem,
+                  index === FAQs.length - 1 && styles.lastFaqItem,
+                ]}
+              >
+                <Text style={styles.question}>{faq.question}</Text>
+                <Text style={styles.answer}>{faq.answer}</Text>
+              </View>
+            ))}
+          </View>
         </View>
       </ScrollView>
     </View>
@@ -186,25 +281,74 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748B',
   },
-  contactButton: {
+  supportOptions: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  supportOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#3B82F6',
-    borderRadius: 8,
     padding: 16,
-    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
-  contactButtonText: {
+  supportIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#EFF6FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  supportInfo: {
+    flex: 1,
+  },
+  supportTitle: {
     fontFamily: 'Inter-SemiBold',
     fontSize: 16,
-    color: '#FFFFFF',
-    marginLeft: 8,
+    color: '#1F2937',
+    marginBottom: 2,
   },
-  supportText: {
+  supportDetail: {
     fontFamily: 'Inter-Regular',
     fontSize: 14,
     color: '#64748B',
-    textAlign: 'center',
+  },
+  faqContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  faqItem: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  lastFaqItem: {
+    borderBottomWidth: 0,
+  },
+  question: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 16,
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  answer: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 14,
+    color: '#4B5563',
+    lineHeight: 20,
   },
 });

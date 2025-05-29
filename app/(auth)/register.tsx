@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
 import { Link, router } from 'expo-router';
-import { ArrowLeft, Mail, Lock, Eye, EyeOff, Phone, User, MapPin } from 'lucide-react-native';
+import { ArrowLeft, Mail, Lock, Eye, EyeOff, Phone, User, MapPin, Camera, Upload } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import * as ImagePicker from 'expo-image-picker';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 
 export default function RegisterScreen() {
   const { signUp, loading, error: authError } = useAuth();
@@ -16,6 +18,7 @@ export default function RegisterScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [fullName, setFullName] = useState('');
   const [address, setAddress] = useState('');
+  const [profileImage, setProfileImage] = useState<string | null>(null);
   
   // Error states
   const [emailError, setEmailError] = useState('');
@@ -24,6 +27,7 @@ export default function RegisterScreen() {
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [fullNameError, setFullNameError] = useState('');
   const [addressError, setAddressError] = useState('');
+  const [profileImageError, setProfileImageError] = useState('');
 
   const validateEmail = (text: string) => {
     setEmail(text);
@@ -85,6 +89,54 @@ export default function RegisterScreen() {
     }
   };
 
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      // Compress and resize image
+      const manipulatedImage = await manipulateAsync(
+        result.assets[0].uri,
+        [{ resize: { width: 400, height: 400 } }],
+        { compress: 0.8, format: SaveFormat.JPEG }
+      );
+      setProfileImage(manipulatedImage.uri);
+      setProfileImageError('');
+    }
+  };
+
+  const uploadProfilePicture = async (userId: string) => {
+    if (!profileImage) return null;
+
+    try {
+      const ext = profileImage.split('.').pop();
+      const fileName = `${userId}/profile.${ext}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, {
+          uri: profileImage,
+          type: `image/${ext}`,
+          name: `profile.${ext}`,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Error uploading profile picture:', error);
+      return null;
+    }
+  };
+
   const handleRegister = async () => {
     // Validate all fields
     if (!email) setEmailError('Email is required');
@@ -93,29 +145,43 @@ export default function RegisterScreen() {
     if (!confirmPassword) setConfirmPasswordError('Please confirm your password');
     if (!fullName) setFullNameError('Full name is required');
     if (!address) setAddressError('Address is required');
+    if (!profileImage) setProfileImageError('Profile picture is required');
     
-    if (email && phone && password && confirmPassword && fullName && address &&
+    if (email && phone && password && confirmPassword && fullName && address && profileImage &&
         !emailError && !phoneError && !passwordError && !confirmPasswordError && 
-        !fullNameError && !addressError) {
-      await signUp(email, password);
+        !fullNameError && !addressError && !profileImageError) {
       
-      if (!authError) {
-        const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error } = await signUp(email, password);
+      
+      if (user && !error) {
+        const avatarUrl = await uploadProfilePicture(user.id);
         
-        if (user) {
-          // Update profile with additional information
-          const { error: updateError } = await supabase
-            .from('profiles')
-            .update({
-              full_name: fullName,
-              phone,
-              address
-            })
-            .eq('id', user.id);
-            
-          if (!updateError) {
-            router.push('/verification');
-          }
+        // Update profile with additional information
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            full_name: fullName,
+            phone,
+            address,
+            avatar_url: avatarUrl,
+            user_type: userType,
+            verification_status: {
+              email: false,
+              phone: false,
+              address: false,
+              social: false
+            },
+            social_links: {
+              facebook: null,
+              twitter: null,
+              linkedin: null,
+              instagram: null
+            }
+          })
+          .eq('id', user.id);
+          
+        if (!updateError) {
+          router.push('/verification');
         }
       }
     }
@@ -166,6 +232,21 @@ export default function RegisterScreen() {
               I'm a Renter
             </Text>
           </TouchableOpacity>
+        </View>
+        
+        {/* Profile Picture Upload */}
+        <View style={styles.profileImageContainer}>
+          <TouchableOpacity onPress={pickImage} style={styles.profileImageButton}>
+            {profileImage ? (
+              <Image source={{ uri: profileImage }} style={styles.profileImage} />
+            ) : (
+              <View style={styles.profileImagePlaceholder}>
+                <Camera size={40} color="#94A3B8" />
+                <Text style={styles.profileImageText}>Add Profile Picture</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          {profileImageError ? <Text style={styles.errorText}>{profileImageError}</Text> : null}
         </View>
         
         <View style={styles.form}>
@@ -463,5 +544,31 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-SemiBold',
     fontSize: 14,
     color: '#3B82F6',
+  },
+  profileImageContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  profileImageButton: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  profileImage: {
+    width: '100%',
+    height: '100%',
+  },
+  profileImagePlaceholder: {
+    alignItems: 'center',
+  },
+  profileImageText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#64748B',
+    fontFamily: 'Inter-Medium',
   },
 });

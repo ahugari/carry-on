@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, Image } from 'react-native';
-import { Star } from 'lucide-react-native';
+import { Star, User } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 
@@ -11,7 +11,7 @@ interface Review {
   created_at: string;
   reviewer: {
     full_name: string;
-    avatar_url: string;
+    avatar_url: string | null;
   };
 }
 
@@ -22,7 +22,7 @@ interface ReviewResponse {
   created_at: string;
   reviewer: {
     full_name: string;
-    avatar_url: string;
+    avatar_url: string | null;
   };
 }
 
@@ -57,17 +57,7 @@ export default function ReviewsScreen() {
 
       if (error) throw error;
       if (data) {
-        const formattedReviews: Review[] = data.map(review => ({
-          id: review.id,
-          rating: review.rating,
-          comment: review.comment,
-          created_at: review.created_at,
-          reviewer: {
-            full_name: review.reviewer.full_name,
-            avatar_url: review.reviewer.avatar_url
-          }
-        }));
-        setReviews(formattedReviews);
+        setReviews(data);
       }
     } catch (error) {
       console.error('Error loading reviews:', error);
@@ -85,10 +75,8 @@ export default function ReviewsScreen() {
             style={styles.reviewerImage}
           />
         ) : (
-          <View style={[styles.reviewerImage, styles.avatarPlaceholder]}>
-            <Text style={styles.avatarPlaceholderText}>
-              {item.reviewer.full_name.charAt(0).toUpperCase()}
-            </Text>
+          <View style={[styles.reviewerImage, styles.reviewerImagePlaceholder]}>
+            <User size={20} color="#94A3B8" />
           </View>
         )}
         <View style={styles.reviewerInfo}>
@@ -171,6 +159,11 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginRight: 12,
   },
+  reviewerImagePlaceholder: {
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   reviewerInfo: {
     flex: 1,
   },
@@ -205,14 +198,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#64748B',
   },
-  avatarPlaceholder: {
-    backgroundColor: '#E2E8F0',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarPlaceholderText: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 16,
-    color: '#64748B',
-  },
-});
+}); 

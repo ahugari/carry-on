@@ -1,60 +1,68 @@
-import { Tabs } from 'expo-router';
+import { Tabs } from 'expo-router/tabs';
 import { Home, Search, MessageCircle, Briefcase, User } from 'lucide-react-native';
 import { StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ChatProvider } from '@/contexts/ChatContext';
+
+type IconProps = {
+  color: string;
+  size: number;
+};
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: {
-          ...styles.tabBar,
-          height: 60 + insets.bottom,
-          paddingBottom: insets.bottom,
-        },
-        tabBarActiveTintColor: '#3B82F6',
-        tabBarInactiveTintColor: '#94A3B8',
-        tabBarLabelStyle: styles.tabBarLabel,
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="search"
-        options={{
-          title: 'Search',
-          tabBarIcon: ({ color, size }) => <Search size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="messages"
-        options={{
-          title: 'Messages',
-          tabBarIcon: ({ color, size }) => <MessageCircle size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="trips"
-        options={{
-          title: 'My Trips',
-          tabBarIcon: ({ color, size }) => <Briefcase size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
-        }}
-      />
-    </Tabs>
+    <ChatProvider>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle: {
+            ...styles.tabBar,
+            height: 60 + insets.bottom,
+            paddingBottom: insets.bottom,
+          },
+          tabBarActiveTintColor: '#3B82F6',
+          tabBarInactiveTintColor: '#94A3B8',
+          tabBarLabelStyle: styles.tabBarLabel,
+        }}>
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: 'Home',
+            tabBarIcon: ({ color, size }: IconProps) => <Home size={size} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="search"
+          options={{
+            title: 'Search',
+            tabBarIcon: ({ color, size }: IconProps) => <Search size={size} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="messages"
+          options={{
+            title: 'Messages',
+            tabBarIcon: ({ color, size }: IconProps) => <MessageCircle size={size} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="trips"
+          options={{
+            title: 'Activities',
+            tabBarIcon: ({ color, size }: IconProps) => <Briefcase size={size} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="profile"
+          options={{
+            title: 'Profile',
+            tabBarIcon: ({ color, size }: IconProps) => <User size={size} color={color} />,
+          }}
+        />
+      </Tabs>
+    </ChatProvider>
   );
 }
 

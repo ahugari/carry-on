@@ -1,22 +1,76 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Settings, Star, ShieldCheck, MessageSquare, Clock, CreditCard, CircleHelp as HelpCircle, LogOut, ChevronRight, Camera } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 
 export default function ProfileScreen() {
+  const router = useRouter();
   const { profile, signOut, loading: authLoading } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState({
+    trips: 0,
+    items_delivered: 0,
+    earnings: 0,
+  });
   
   // Form state
-  const [fullName, setFullName] = useState(profile?.full_name || '');
-  const [phone, setPhone] = useState(profile?.phone || '');
-  const [address, setAddress] = useState(profile?.address || '');
-  const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || '');
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+
+  useEffect(() => {
+    if (profile) {
+      setFullName(profile.full_name || '');
+      setPhone(profile.phone || '');
+      setAddress(profile.address || '');
+      setAvatarUrl(profile.avatar_url || '');
+      loadUserStats();
+    }
+  }, [profile]);
+
+  const loadUserStats = async () => {
+    if (!profile?.id) return;
+
+    try {
+      // Get completed trips where user is either carrier or sender
+      const { data: completedTrips, error: tripError } = await supabase
+        .from('trips')
+        .select('id, payment_amount')
+        .or(`carrier_id.eq.${profile.id},sender_id.eq.${profile.id}`)
+        .eq('status', 'completed');
+
+      if (tripError) throw tripError;
+
+      // Get delivered items where user is the carrier
+      const { data: deliveredItems, error: itemError } = await supabase
+        .from('items')
+        .select('id')
+        .eq('carrier_id', profile.id)
+        .eq('status', 'delivered');
+
+      if (itemError) throw itemError;
+
+      // Calculate total earnings from completed trips
+      const totalEarnings = completedTrips?.reduce((sum, trip) => {
+        return sum + (trip.payment_amount || 0);
+      }, 0) || 0;
+
+      setStats({
+        trips: completedTrips?.length || 0,
+        items_delivered: deliveredItems?.length || 0,
+        earnings: totalEarnings,
+      });
+    } catch (error) {
+      console.error('Error loading user stats:', error);
+      setError(error instanceof Error ? error.message : 'Failed to load stats');
+    }
+  };
 
   const handleImagePick = async () => {
     try {
@@ -28,12 +82,53 @@ export default function ProfileScreen() {
       });
 
       if (!result.canceled && result.assets[0].uri) {
-        // In a real app, you would upload this to storage
-        // For now, we'll just update the URL
-        setAvatarUrl(result.assets[0].uri);
+        setLoading(true);
+        setError(null);
+
+        if (!profile?.id) {
+          throw new Error('User profile not found');
+        }
+
+        // Upload image to Supabase Storage
+        const uri = result.assets[0].uri;
+        const fileName = uri.split('/').pop() || '';
+        const fileExt = fileName.split('.').pop()?.toLowerCase() || '';
+        const filePath = `${profile.id}/avatar.${fileExt}`;
+
+        // Convert uri to blob
+        const response = await fetch(uri);
+        const blob = await response.blob();
+
+        // Upload to storage
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, blob, {
+            contentType: `image/${fileExt}`,
+            upsert: true,
+          });
+
+        if (uploadError) throw uploadError;
+
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(filePath);
+
+        // Update profile
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ avatar_url: publicUrl })
+          .eq('id', profile.id);
+
+        if (updateError) throw updateError;
+
+        setAvatarUrl(publicUrl);
       }
     } catch (error) {
-      console.error('Error picking image:', error);
+      console.error('Error uploading image:', error);
+      setError(error instanceof Error ? error.message : 'Error uploading image');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -42,7 +137,9 @@ export default function ProfileScreen() {
       setLoading(true);
       setError(null);
 
-      if (!profile?.id) return;
+      if (!profile?.id) {
+        throw new Error('User profile not found');
+      }
 
       const { error: updateError } = await supabase
         .from('profiles')
@@ -50,7 +147,6 @@ export default function ProfileScreen() {
           full_name: fullName,
           phone,
           address,
-          avatar_url: avatarUrl,
           updated_at: new Date().toISOString(),
         })
         .eq('id', profile.id);
@@ -58,7 +154,7 @@ export default function ProfileScreen() {
       if (updateError) throw updateError;
       setIsEditing(false);
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'An error occurred');
+      setError(error instanceof Error ? error.message : 'Failed to update profile');
     } finally {
       setLoading(false);
     }
@@ -70,11 +166,12 @@ export default function ProfileScreen() {
       router.replace('/(auth)/login');
     } catch (error) {
       console.error('Error signing out:', error);
+      setError(error instanceof Error ? error.message : 'Failed to sign out');
     }
   };
 
   const handleNavigation = (route: string) => {
-    router.push(route);
+    router.push(route as any);
   };
   
   if (authLoading || !profile) {
@@ -94,7 +191,7 @@ export default function ProfileScreen() {
             <TouchableOpacity 
               style={styles.profileImageContainer} 
               onPress={isEditing ? handleImagePick : undefined}
-              disabled={!isEditing}
+              disabled={!isEditing || loading}
             >
               {avatarUrl ? (
                 <Image source={{ uri: avatarUrl }} style={styles.profileImage} />
@@ -117,24 +214,28 @@ export default function ProfileScreen() {
                   onChangeText={setFullName}
                   placeholder="Enter your name"
                   placeholderTextColor="#94A3B8"
+                  editable={!loading}
                 />
               ) : (
                 <Text style={styles.name}>{profile.full_name || 'Add your name'}</Text>
               )}
               <View style={styles.ratingContainer}>
                 <Star size={16} color="#FACC15" fill="#FACC15" />
-                <Text style={styles.rating}>{profile.rating.toFixed(1)} · {profile.total_reviews} reviews</Text>
+                <Text style={styles.rating}>{profile.rating?.toFixed(1) || '0.0'} · {profile.total_reviews || 0} reviews</Text>
               </View>
-              <View style={styles.verifiedBadge}>
-                <ShieldCheck size={12} color="#3B82F6" />
-                <Text style={styles.verifiedText}>Verified</Text>
-              </View>
+              {profile.verification_status?.email && (
+                <View style={styles.verifiedBadge}>
+                  <ShieldCheck size={12} color="#3B82F6" />
+                  <Text style={styles.verifiedText}>Verified</Text>
+                </View>
+              )}
             </View>
           </View>
           {!isEditing && (
             <TouchableOpacity 
               style={styles.settingsButton}
               onPress={() => setIsEditing(true)}
+              disabled={loading}
             >
               <Settings size={24} color="#1F2937" />
             </TouchableOpacity>
@@ -160,6 +261,7 @@ export default function ProfileScreen() {
                 placeholder="Enter your phone number"
                 placeholderTextColor="#94A3B8"
                 keyboardType="phone-pad"
+                editable={!loading}
               />
             </View>
 
@@ -171,6 +273,7 @@ export default function ProfileScreen() {
                 onChangeText={setAddress}
                 placeholder="Enter your address"
                 placeholderTextColor="#94A3B8"
+                editable={!loading}
               />
             </View>
 
@@ -205,15 +308,15 @@ export default function ProfileScreen() {
             {/* Stats */}
             <View style={styles.statsContainer}>
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>12</Text>
+                <Text style={styles.statValue}>{stats.trips}</Text>
                 <Text style={styles.statLabel}>Trips</Text>
               </View>
               <View style={[styles.statItem, styles.statBorder]}>
-                <Text style={styles.statValue}>8</Text>
+                <Text style={styles.statValue}>{stats.items_delivered}</Text>
                 <Text style={styles.statLabel}>Items Delivered</Text>
               </View>
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>$420</Text>
+                <Text style={styles.statValue}>${stats.earnings.toFixed(0)}</Text>
                 <Text style={styles.statLabel}>Earned</Text>
               </View>
             </View>
@@ -225,7 +328,7 @@ export default function ProfileScreen() {
               <View style={styles.menuContainer}>
                 <TouchableOpacity 
                   style={styles.menuItem}
-                  onPress={() => handleNavigation('/(tabs)/messages')}
+                  onPress={() => router.push('/(tabs)/messages')}
                 >
                   <View style={styles.menuIconContainer}>
                     <MessageSquare size={20} color="#3B82F6" />
@@ -236,7 +339,7 @@ export default function ProfileScreen() {
                 
                 <TouchableOpacity 
                   style={styles.menuItem}
-                  onPress={() => handleNavigation('/trip-history')}
+                  onPress={() => router.push('/trip-history')}
                 >
                   <View style={styles.menuIconContainer}>
                     <Clock size={20} color="#3B82F6" />
@@ -247,7 +350,7 @@ export default function ProfileScreen() {
                 
                 <TouchableOpacity 
                   style={styles.menuItem}
-                  onPress={() => handleNavigation('/reviews')}
+                  onPress={() => router.push('/(settings)/reviews')}
                 >
                   <View style={styles.menuIconContainer}>
                     <Star size={20} color="#3B82F6" />
@@ -258,7 +361,7 @@ export default function ProfileScreen() {
                 
                 <TouchableOpacity 
                   style={styles.menuItem}
-                  onPress={() => handleNavigation('/payment-methods')}
+                  onPress={() => router.push('/(settings)/payment-methods')}
                 >
                   <View style={styles.menuIconContainer}>
                     <CreditCard size={20} color="#3B82F6" />
@@ -275,7 +378,7 @@ export default function ProfileScreen() {
               <View style={styles.menuContainer}>
                 <TouchableOpacity 
                   style={styles.menuItem}
-                  onPress={() => handleNavigation('/help-center')}
+                  onPress={() => router.push('/(settings)/help-center')}
                 >
                   <View style={styles.menuIconContainer}>
                     <HelpCircle size={20} color="#3B82F6" />
@@ -286,7 +389,7 @@ export default function ProfileScreen() {
                 
                 <TouchableOpacity 
                   style={styles.menuItem}
-                  onPress={() => handleNavigation('/trust-safety')}
+                  onPress={() => router.push('/(settings)/trust-safety')}
                 >
                   <View style={styles.menuIconContainer}>
                     <ShieldCheck size={20} color="#3B82F6" />
@@ -301,6 +404,7 @@ export default function ProfileScreen() {
             <TouchableOpacity 
               style={styles.logoutButton}
               onPress={handleLogout}
+              disabled={loading}
             >
               <LogOut size={20} color="#EF4444" />
               <Text style={styles.logoutText}>Log Out</Text>
@@ -505,10 +609,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginHorizontal: 16,
     borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
+    boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.05)',
     elevation: 2,
   },
   statItem: {
@@ -545,10 +646,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
+    boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.05)',
     elevation: 2,
   },
   menuItem: {

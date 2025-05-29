@@ -19,6 +19,23 @@ export interface Database {
           address: string | null
           rating: number
           total_reviews: number
+          user_type: 'renter' | 'sharer'
+          verification_status: {
+            email: boolean
+            phone: boolean
+            address: boolean
+            social: boolean
+          }
+          social_links: {
+            facebook: string | null
+            twitter: string | null
+            linkedin: string | null
+            instagram: string | null
+          }
+          profile_picture_required: boolean
+          profile_completed: boolean
+          stripe_customer_id: string | null
+          plaid_token: string | null
           created_at: string
           updated_at: string
         }
@@ -31,6 +48,23 @@ export interface Database {
           address?: string | null
           rating?: number
           total_reviews?: number
+          user_type?: 'renter' | 'sharer'
+          verification_status?: {
+            email: boolean
+            phone: boolean
+            address: boolean
+            social: boolean
+          }
+          social_links?: {
+            facebook: string | null
+            twitter: string | null
+            linkedin: string | null
+            instagram: string | null
+          }
+          profile_picture_required?: boolean
+          profile_completed?: boolean
+          stripe_customer_id?: string | null
+          plaid_token?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -43,6 +77,23 @@ export interface Database {
           address?: string | null
           rating?: number
           total_reviews?: number
+          user_type?: 'renter' | 'sharer'
+          verification_status?: {
+            email: boolean
+            phone: boolean
+            address: boolean
+            social: boolean
+          }
+          social_links?: {
+            facebook: string | null
+            twitter: string | null
+            linkedin: string | null
+            instagram: string | null
+          }
+          profile_picture_required?: boolean
+          profile_completed?: boolean
+          stripe_customer_id?: string | null
+          plaid_token?: string | null
           created_at?: string
           updated_at?: string
         }
