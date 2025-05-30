@@ -65,6 +65,112 @@ type StatusTextStyles = {
   [key: string]: StatusTextStyle;
 };
 
+const MOCK_TRIPS: Trip[] = [
+  {
+    id: '1',
+    origin: 'New York',
+    destination: 'London',
+    departure_date: '2025-08-15',
+    status: 'active',
+    carrier: {
+      id: '1',
+      full_name: 'Alex Johnson',
+      avatar_url: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg'
+    },
+    sender: {
+      id: '2',
+      full_name: 'Sarah Wilson',
+      avatar_url: 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg'
+    },
+    requests: { count: 3 }
+  },
+  {
+    id: '2',
+    origin: 'San Francisco',
+    destination: 'Tokyo',
+    departure_date: '2025-09-03',
+    status: 'pending',
+    carrier: {
+      id: '1',
+      full_name: 'Alex Johnson',
+      avatar_url: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg'
+    },
+    sender: null,
+    requests: { count: 0 }
+  },
+  {
+    id: '3',
+    origin: 'Berlin',
+    destination: 'Paris',
+    departure_date: '2025-08-28',
+    status: 'completed',
+    carrier: {
+      id: '3',
+      full_name: 'Michael Brown',
+      avatar_url: 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg'
+    },
+    sender: {
+      id: '1',
+      full_name: 'Alex Johnson',
+      avatar_url: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg'
+    },
+    requests: { count: 1 }
+  }
+];
+
+const MOCK_ITEMS: Item[] = [
+  {
+    id: '1',
+    name: 'Gaming Console',
+    origin: 'London',
+    destination: 'New York',
+    status: 'pending',
+    owner: {
+      id: '1',
+      full_name: 'Alex Johnson',
+      avatar_url: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg'
+    },
+    carrier: null,
+    offers: { count: 2 }
+  },
+  {
+    id: '2',
+    name: 'Camera Equipment',
+    origin: 'Tokyo',
+    destination: 'Seoul',
+    status: 'active',
+    owner: {
+      id: '4',
+      full_name: 'Emily Chen',
+      avatar_url: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg'
+    },
+    carrier: {
+      id: '1',
+      full_name: 'Alex Johnson',
+      avatar_url: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg'
+    },
+    offers: { count: 1 }
+  },
+  {
+    id: '3',
+    name: 'Vintage Vinyl Records',
+    origin: 'Paris',
+    destination: 'Berlin',
+    status: 'completed',
+    owner: {
+      id: '5',
+      full_name: 'David Lee',
+      avatar_url: 'https://images.pexels.com/photos/2379005/pexels-photo-2379005.jpeg'
+    },
+    carrier: {
+      id: '1',
+      full_name: 'Alex Johnson',
+      avatar_url: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg'
+    },
+    offers: { count: 3 }
+  }
+];
+
 export default function ActivitiesScreen() {
   const router = useRouter();
   const { profile } = useAuth();
@@ -82,9 +188,11 @@ export default function ActivitiesScreen() {
     if (profile?.id) {
       loadActivities();
     } else {
-      console.log('ActivitiesScreen: Profile ID not available, skipping loadActivities.');
-      // Potentially set loading to false if profile is definitively not going to be available
-      // For now, let AuthProvider handle the global loading state.
+      // Use mock data while profile is loading
+      setTrips(MOCK_TRIPS);
+      setItems(MOCK_ITEMS);
+      setLoading(false);
+      console.log('ActivitiesScreen: Using mock data while profile loads.');
     }
   }, [profile?.id]);
 

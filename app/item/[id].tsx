@@ -1,374 +1,349 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, MapPin, Calendar, Package, Scale } from 'lucide-react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ChevronLeft, MapPin, Package, MessageSquare, DollarSign, Scale, Box } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSupabaseQuery } from '@/hooks/useSupabaseQuery';
 import { supabase } from '@/lib/supabase';
-import { Database } from '@/types/supabase';
 
-type Item = Database['public']['Tables']['items']['Row'] & {
-  renter: Database['public']['Tables']['profiles']['Row'];
+type Profile = {
+  id: string;
+  full_name: string;
+  avatar_url: string;
 };
 
-export default function ItemDetailScreen() {
-  const { id } = useLocalSearchParams();
-  const { user } = useAuth();
+type ItemStatus = 'pending' | 'active' | 'completed' | 'cancelled';
 
-  const { data: item, loading, error } = useSupabaseQuery<Item>(
-    () => supabase
-      .from('items')
-      .select(`
-        *,
-        renter:profiles!items_renter_id_fkey(*)
-      `)
-      .eq('id', id)
-      .single(),
-    [id]
-  );
+type Item = {
+  id: string;
+  name: string;
+  description: string;
+  origin: string;
+  destination: string;
+  status: ItemStatus;
+  weight: number;
+  dimensions: {
+    length: number;
+    width: number;
+    height: number;
+  };
+  value: number;
+  owner: Profile | null;
+  carrier: Profile | null;
+  offers: {
+    count: number;
+  };
+  category: string;
+};
+
+export default function ItemDetailsScreen() {
+  const { id } = useLocalSearchParams();
+  const router = useRouter();
+  const { profile } = useAuth();
+  const [item, setItem] = useState<Item | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Mock data for testing UI
+    const mockItem: Item = {
+      id: '1',
+      name: 'Gaming Laptop',
+      description: 'Brand new gaming laptop that needs to be delivered. Handle with care. The package is well-padded and comes in its original box.',
+      origin: 'Boston, MA',
+      destination: 'New York City, NY',
+      status: 'pending',
+      weight: 2.5,
+      dimensions: {
+        length: 40,
+        width: 30,
+        height: 10
+      },
+      value: 1200,
+      owner: {
+        id: '1',
+        full_name: 'Sarah Parker',
+        avatar_url: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80'
+      },
+      carrier: null,
+      offers: {
+        count: 2
+      },
+      category: 'Electronics'
+    };
+
+    setItem(mockItem);
+    setLoading(false);
+  }, [id]);
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Loading item details...</Text>
+        <Text>Loading item details...</Text>
       </View>
     );
   }
 
-  if (error || !item) {
+  if (!item) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Failed to load item details</Text>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.backButtonText}>Go Back</Text>
+        <Text>Item not found</Text>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Text style={styles.backButton}>Go Back</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  const isOwner = user?.id === item.renter_id;
+  const getStatusColor = (status: ItemStatus) => {
+    switch (status) {
+      case 'active':
+        return '#22C55E';
+      case 'pending':
+        return '#F59E0B';
+      case 'completed':
+        return '#3B82F6';
+      case 'cancelled':
+        return '#EF4444';
+      default:
+        return '#6B7280';
+    }
+  };
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <ArrowLeft size={24} color="#1F2937" />
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <ChevronLeft size={24} color="#1F2937" />
         </TouchableOpacity>
-        <Text style={styles.title}>Item Details</Text>
-        {isOwner && (
-          <TouchableOpacity 
-            style={styles.editButton}
-            onPress={() => router.push(`/item/edit/${item.id}`)}
-          >
-            <Text style={styles.editButtonText}>Edit</Text>
-          </TouchableOpacity>
-        )}
+        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+          <Text style={styles.statusText}>{item.status.charAt(0).toUpperCase() + item.status.slice(1)}</Text>
+        </View>
       </View>
 
-      <ScrollView style={styles.content}>
-        <ScrollView 
-          horizontal 
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          style={styles.imageGallery}
-        >
-          {item.photos.map((photo, index) => (
-            <Image 
-              key={index}
-              source={{ uri: photo }}
-              style={styles.itemImage}
-            />
-          ))}
-        </ScrollView>
-
-        <View style={styles.itemDetails}>
-          <Text style={styles.itemName}>{item.name}</Text>
-          <Text style={styles.itemDescription}>{item.description}</Text>
-
-          <View style={styles.routeContainer}>
-            <MapPin size={20} color="#3B82F6" />
-            <Text style={styles.routeText}>
-              {item.pickup_city} → {item.delivery_city}
-            </Text>
-          </View>
-
-          {item.desired_date && (
-            <View style={styles.dateContainer}>
-              <Calendar size={16} color="#64748B" />
-              <Text style={styles.dateText}>
-                Desired delivery by {new Date(item.desired_date).toLocaleDateString()}
-              </Text>
-            </View>
-          )}
+      {/* Item Information */}
+      <View style={styles.section}>
+        <Text style={styles.itemName}>{item.name}</Text>
+        <View style={styles.categoryBadge}>
+          <Text style={styles.categoryText}>{item.category}</Text>
         </View>
+      </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Item Specifications</Text>
-          <View style={styles.specDetails}>
-            <Text style={styles.specText}>
-              Dimensions: {item.length}x{item.width}x{item.height} {item.unit}
-            </Text>
-            <Text style={styles.specText}>
-              Weight: {item.weight} {item.weight_unit}
-            </Text>
-            <Text style={styles.specText}>
-              Category: {item.category}
-            </Text>
-            <Text style={styles.specText}>
-              Declared Value: {item.currency} {item.value}
-            </Text>
+      {/* Route Information */}
+      <View style={styles.section}>
+        <View style={styles.routeInfo}>
+          <View style={styles.locationContainer}>
+            <MapPin size={20} color="#4B5563" />
+            <Text style={styles.locationText}>{item.origin}</Text>
+          </View>
+          <View style={styles.locationContainer}>
+            <MapPin size={20} color="#4B5563" />
+            <Text style={styles.locationText}>{item.destination}</Text>
           </View>
         </View>
+      </View>
 
-        {item.special_instructions && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Special Instructions</Text>
-            <Text style={styles.instructionsText}>
-              {item.special_instructions}
-            </Text>
-          </View>
-        )}
-
+      {/* Owner Information */}
+      {item.owner && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Owner</Text>
-          <View style={styles.ownerContainer}>
-            <Image 
-              source={{ 
-                uri: item.renter.avatar_url || 
-                    'https://images.pexels.com/photos/7473087/pexels-photo-7473087.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2'
-              }}
-              style={styles.ownerImage}
-            />
-            <View style={styles.ownerInfo}>
-              <Text style={styles.ownerName}>{item.renter.full_name}</Text>
-              <Text style={styles.ownerRating}>★ {item.renter.rating.toFixed(1)} ({item.renter.total_reviews} reviews)</Text>
-            </View>
-            {!isOwner && (
-              <TouchableOpacity 
-                style={styles.contactButton}
-                onPress={() => router.push(`/messages/${item.renter_id}`)}
-              >
-                <Text style={styles.contactButtonText}>Contact</Text>
+          <View style={styles.profileContainer}>
+            <Image source={{ uri: item.owner.avatar_url }} style={styles.avatar} />
+            <View style={styles.profileInfo}>
+              <Text style={styles.name}>{item.owner.full_name}</Text>
+              <TouchableOpacity style={styles.messageButton}>
+                <MessageSquare size={20} color="#FFFFFF" />
+                <Text style={styles.messageButtonText}>Message</Text>
               </TouchableOpacity>
-            )}
+            </View>
           </View>
         </View>
-      </ScrollView>
-
-      {!isOwner && (
-        <View style={styles.footer}>
-          <TouchableOpacity 
-            style={styles.offerButton}
-            onPress={() => router.push(`/trip/new/step-1?itemId=${item.id}`)}
-          >
-            <Package size={20} color="#FFFFFF" />
-            <Text style={styles.offerButtonText}>Offer to Transport</Text>
-          </TouchableOpacity>
-        </View>
       )}
-    </View>
+
+      {/* Item Details */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Item Details</Text>
+        <View style={styles.detailsGrid}>
+          <View style={styles.detailItem}>
+            <Scale size={20} color="#4B5563" />
+            <Text style={styles.detailLabel}>Weight</Text>
+            <Text style={styles.detailValue}>{item.weight} kg</Text>
+          </View>
+          <View style={styles.detailItem}>
+            <Box size={20} color="#4B5563" />
+            <Text style={styles.detailLabel}>Dimensions</Text>
+            <Text style={styles.detailValue}>{item.dimensions.length}x{item.dimensions.width}x{item.dimensions.height} cm</Text>
+          </View>
+          <View style={styles.detailItem}>
+            <DollarSign size={20} color="#4B5563" />
+            <Text style={styles.detailLabel}>Value</Text>
+            <Text style={styles.detailValue}>${item.value}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Description */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Description</Text>
+        <Text style={styles.description}>{item.description}</Text>
+      </View>
+
+      {/* Action Buttons */}
+      <View style={styles.actionButtons}>
+        <TouchableOpacity style={styles.primaryButton}>
+          <Text style={styles.primaryButtonText}>Offer to Deliver</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-  },
-  loadingText: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 16,
-    color: '#64748B',
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    padding: 16,
-  },
-  errorText: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 16,
-    color: '#EF4444',
-    marginBottom: 16,
   },
   header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 60,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    padding: 16,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F1F5F9',
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 8,
   },
-  title: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 20,
-    color: '#1F2937',
-    marginLeft: 12,
-    flex: 1,
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
-  editButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#EFF6FF',
-    borderRadius: 6,
-  },
-  editButtonText: {
-    fontFamily: 'Inter-SemiBold',
+  statusText: {
+    color: '#FFFFFF',
     fontSize: 14,
-    color: '#3B82F6',
+    fontWeight: '600',
   },
-  content: {
-    flex: 1,
-  },
-  imageGallery: {
-    height: 240,
-  },
-  itemImage: {
-    width: 360,
-    height: 240,
-  },
-  itemDetails: {
+  section: {
     padding: 16,
-    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
   itemName: {
-    fontFamily: 'Inter-Bold',
     fontSize: 24,
+    fontWeight: '600',
     color: '#1F2937',
     marginBottom: 8,
   },
-  itemDescription: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 16,
-    color: '#64748B',
-    marginBottom: 16,
-    lineHeight: 24,
+  categoryBadge: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 16,
+    alignSelf: 'flex-start',
   },
-  routeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  categoryText: {
+    color: '#4B5563',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  routeInfo: {
     marginBottom: 12,
   },
-  routeText: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 16,
-    color: '#1F2937',
-    marginLeft: 8,
-  },
-  dateContainer: {
+  locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 8,
   },
-  dateText: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    color: '#64748B',
+  locationText: {
     marginLeft: 8,
-  },
-  section: {
-    marginTop: 8,
-    padding: 16,
-    backgroundColor: '#FFFFFF',
+    fontSize: 16,
+    color: '#1F2937',
   },
   sectionTitle: {
-    fontFamily: 'Inter-SemiBold',
     fontSize: 18,
+    fontWeight: '600',
     color: '#1F2937',
     marginBottom: 12,
   },
-  specDetails: {
-    backgroundColor: '#F8FAFC',
-    padding: 12,
-    borderRadius: 8,
-  },
-  specText: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    color: '#64748B',
-    marginBottom: 4,
-  },
-  instructionsText: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    color: '#64748B',
-    lineHeight: 20,
-  },
-  ownerContainer: {
+  profileContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  ownerImage: {
+  avatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
   },
-  ownerInfo: {
-    flex: 1,
+  profileInfo: {
     marginLeft: 12,
+    flex: 1,
   },
-  ownerName: {
-    fontFamily: 'Inter-SemiBold',
+  name: {
     fontSize: 16,
+    fontWeight: '600',
     color: '#1F2937',
+    marginBottom: 4,
   },
-  ownerRating: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    color: '#64748B',
-  },
-  contactButton: {
-    backgroundColor: '#3B82F6',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 6,
-  },
-  contactButtonText: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 14,
-    color: '#FFFFFF',
-  },
-  footer: {
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-  },
-  offerButton: {
+  messageButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: '#3B82F6',
-    paddingVertical: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 8,
+    alignSelf: 'flex-start',
   },
-  offerButtonText: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 16,
+  messageButtonText: {
     color: '#FFFFFF',
-    marginLeft: 8,
+    marginLeft: 4,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  detailsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  detailItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  detailLabel: {
+    fontSize: 14,
+    color: '#4B5563',
+    marginTop: 4,
+  },
+  detailValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginTop: 2,
+  },
+  description: {
+    fontSize: 14,
+    color: '#4B5563',
+    lineHeight: 20,
+  },
+  actionButtons: {
+    padding: 16,
+    paddingBottom: 32,
+  },
+  primaryButton: {
+    backgroundColor: '#3B82F6',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

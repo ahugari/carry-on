@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useGlobalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, Check, AlertTriangle, Shield } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,7 +17,7 @@ const ITEM_CATEGORIES = [
 
 export default function TripStep3Screen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
+  const params = useGlobalSearchParams();
   const { session } = useAuth();
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [restrictions, setRestrictions] = useState('');
@@ -70,16 +70,7 @@ export default function TripStep3Screen() {
 
       if (error) throw error;
       
-      Alert.alert(
-        'Success',
-        'Your trip has been created successfully!',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.replace('/(tabs)/trips')
-          }
-        ]
-      );
+      router.replace('/(tabs)/trips');
     } catch (error) {
       Alert.alert('Error', 'Failed to create trip. Please try again.');
     } finally {

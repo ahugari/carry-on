@@ -1,466 +1,328 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, MapPin, Calendar, Package, AlertCircle } from 'lucide-react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ChevronLeft, MapPin, Calendar, Package, MessageSquare, User, Clock } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSupabaseQuery } from '@/hooks/useSupabaseQuery';
 import { supabase } from '@/lib/supabase';
-import { Database } from '@/types/supabase';
 
-type Trip = Database['public']['Tables']['trips']['Row'] & {
-  sharer: Database['public']['Tables']['profiles']['Row'];
-  items: Database['public']['Tables']['items']['Row'][];
+type Profile = {
+  id: string;
+  full_name: string;
+  avatar_url: string;
 };
 
-export default function TripDetailScreen() {
-  const { id } = useLocalSearchParams();
-  const { user } = useAuth();
+type TripStatus = 'pending' | 'active' | 'completed' | 'cancelled';
 
-  const { data: trip, loading, error } = useSupabaseQuery<Trip>(
-    () => supabase
-      .from('trips')
-      .select(`
-        *,
-        sharer:profiles!trips_sharer_id_fkey(*),
-        items(*)
-      `)
-      .eq('id', id)
-      .single(),
-    [id]
-  );
+type Trip = {
+  id: string;
+  origin: string;
+  destination: string;
+  departure_date: string;
+  arrival_date: string;
+  status: TripStatus;
+  available_space: string;
+  price_per_kg: number;
+  carrier: Profile | null;
+  sender: Profile | null;
+  requests: {
+    count: number;
+  };
+  description: string;
+};
+
+export default function TripDetailsScreen() {
+  const { id } = useLocalSearchParams();
+  const router = useRouter();
+  const { profile } = useAuth();
+  const [trip, setTrip] = useState<Trip | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Mock data for testing UI
+    const mockTrip: Trip = {
+      id: '1',
+      origin: 'Boston, MA',
+      destination: 'New York City, NY',
+      departure_date: '2024-04-15',
+      arrival_date: '2024-04-15',
+      status: 'active',
+      available_space: '20kg',
+      price_per_kg: 5,
+      carrier: {
+        id: '1',
+        full_name: 'John Smith',
+        avatar_url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80'
+      },
+      sender: null,
+      requests: {
+        count: 3
+      },
+      description: 'I am traveling from Boston to New York City and have extra space in my luggage. Can carry up to 20kg of items.'
+    };
+
+    setTrip(mockTrip);
+    setLoading(false);
+  }, [id]);
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Loading trip details...</Text>
+        <Text>Loading trip details...</Text>
       </View>
     );
   }
 
-  if (error || !trip) {
+  if (!trip) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Failed to load trip details</Text>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.backButtonText}>Go Back</Text>
+        <Text>Trip not found</Text>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Text style={styles.backButton}>Go Back</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  const isOwner = user?.id === trip.sharer_id;
+  const getStatusColor = (status: TripStatus) => {
+    switch (status) {
+      case 'active':
+        return '#22C55E';
+      case 'pending':
+        return '#F59E0B';
+      case 'completed':
+        return '#3B82F6';
+      case 'cancelled':
+        return '#EF4444';
+      default:
+        return '#6B7280';
+    }
+  };
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <ArrowLeft size={24} color="#1F2937" />
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <ChevronLeft size={24} color="#1F2937" />
         </TouchableOpacity>
-        <Text style={styles.title}>Trip Details</Text>
-        {isOwner && (
-          <TouchableOpacity 
-            style={styles.editButton}
-            onPress={() => router.push(`/trip/edit/${trip.id}`)}
-          >
-            <Text style={styles.editButtonText}>Edit</Text>
-          </TouchableOpacity>
-        )}
+        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(trip.status) }]}>
+          <Text style={styles.statusText}>{trip.status.charAt(0).toUpperCase() + trip.status.slice(1)}</Text>
+        </View>
       </View>
 
-      <ScrollView style={styles.content}>
-        <View style={styles.routeCard}>
-          <View style={styles.routeHeader}>
-            <MapPin size={20} color="#3B82F6" />
-            <Text style={styles.routeText}>
-              {trip.departure_city} → {trip.arrival_city}
-            </Text>
+      {/* Route Information */}
+      <View style={styles.section}>
+        <View style={styles.routeInfo}>
+          <View style={styles.locationContainer}>
+            <MapPin size={20} color="#4B5563" />
+            <Text style={styles.locationText}>{trip.origin}</Text>
           </View>
-
-          <View style={styles.dateContainer}>
-            <Calendar size={16} color="#64748B" />
-            <Text style={styles.dateText}>
-              {new Date(trip.departure_date).toLocaleDateString()} - 
-              {new Date(trip.arrival_date).toLocaleDateString()}
-            </Text>
-          </View>
-
-          {trip.airline && (
-            <Text style={styles.flightInfo}>
-              {trip.airline} {trip.flight_number}
-            </Text>
-          )}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Space Details</Text>
-          <View style={styles.spaceDetails}>
-            <Text style={styles.detailText}>
-              Dimensions: {trip.space_length}x{trip.space_width}x{trip.space_height} {trip.space_unit}
-            </Text>
-            <Text style={styles.detailText}>
-              Weight Limit: {trip.weight_limit} {trip.weight_unit}
-            </Text>
-            <Text style={styles.detailText}>
-              Items Accepted: {trip.item_count}
-            </Text>
+          <View style={styles.locationContainer}>
+            <MapPin size={20} color="#4B5563" />
+            <Text style={styles.locationText}>{trip.destination}</Text>
           </View>
         </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Price</Text>
-          <Text style={styles.price}>
-            {trip.currency} {trip.price}
+        <View style={styles.dateContainer}>
+          <Calendar size={20} color="#4B5563" />
+          <Text style={styles.dateText}>
+            {new Date(trip.departure_date).toLocaleDateString()} - {new Date(trip.arrival_date).toLocaleDateString()}
           </Text>
         </View>
+      </View>
 
-        {trip.accepted_categories && trip.accepted_categories.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Accepted Categories</Text>
-            <View style={styles.categoriesContainer}>
-              {trip.accepted_categories.map((category, index) => (
-                <View key={index} style={styles.categoryTag}>
-                  <Text style={styles.categoryText}>{category}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {trip.restrictions && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Restrictions</Text>
-            <View style={styles.restrictionsContainer}>
-              <AlertCircle size={16} color="#EF4444" />
-              <Text style={styles.restrictionsText}>{trip.restrictions}</Text>
-            </View>
-          </View>
-        )}
-
+      {/* Carrier Information */}
+      {trip.carrier && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Sharer</Text>
-          <View style={styles.sharerContainer}>
-            <Image 
-              source={{ 
-                uri: trip.sharer.avatar_url || 
-                    'https://images.pexels.com/photos/7473087/pexels-photo-7473087.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2'
-              }}
-              style={styles.sharerImage}
-            />
-            <View style={styles.sharerInfo}>
-              <Text style={styles.sharerName}>{trip.sharer.full_name}</Text>
-              <Text style={styles.sharerRating}>★ {trip.sharer.rating.toFixed(1)} ({trip.sharer.total_reviews} reviews)</Text>
+          <Text style={styles.sectionTitle}>Carrier</Text>
+          <View style={styles.profileContainer}>
+            <Image source={{ uri: trip.carrier.avatar_url }} style={styles.avatar} />
+            <View style={styles.profileInfo}>
+              <Text style={styles.name}>{trip.carrier.full_name}</Text>
+              <TouchableOpacity style={styles.messageButton}>
+                <MessageSquare size={20} color="#FFFFFF" />
+                <Text style={styles.messageButtonText}>Message</Text>
+              </TouchableOpacity>
             </View>
-            {!isOwner && (
-              <TouchableOpacity 
-                style={styles.contactButton}
-                onPress={() => router.push(`/messages/${trip.sharer_id}`)}
-              >
-                <Text style={styles.contactButtonText}>Contact</Text>
-              </TouchableOpacity>
-            )}
           </View>
-        </View>
-
-        {trip.items.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Items ({trip.items.length})</Text>
-            {trip.items.map((item) => (
-              <TouchableOpacity 
-                key={item.id}
-                style={styles.itemCard}
-                onPress={() => router.push(`/item/${item.id}`)}
-              >
-                <Image 
-                  source={{ uri: item.photos[0] }}
-                  style={styles.itemImage}
-                />
-                <View style={styles.itemInfo}>
-                  <Text style={styles.itemName}>{item.name}</Text>
-                  <Text style={styles.itemSize}>
-                    {item.length}x{item.width}x{item.height} {item.unit}
-                  </Text>
-                </View>
-                <Text style={styles.itemPrice}>
-                  {item.currency} {item.value}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      </ScrollView>
-
-      {!isOwner && (
-        <View style={styles.footer}>
-          <TouchableOpacity 
-            style={styles.requestButton}
-            onPress={() => router.push(`/item/new/step-1?tripId=${trip.id}`)}
-          >
-            <Package size={20} color="#FFFFFF" />
-            <Text style={styles.requestButtonText}>Request Space</Text>
-          </TouchableOpacity>
         </View>
       )}
-    </View>
+
+      {/* Trip Details */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Trip Details</Text>
+        <View style={styles.detailsGrid}>
+          <View style={styles.detailItem}>
+            <Package size={20} color="#4B5563" />
+            <Text style={styles.detailLabel}>Space Available</Text>
+            <Text style={styles.detailValue}>{trip.available_space}</Text>
+          </View>
+          <View style={styles.detailItem}>
+            <Clock size={20} color="#4B5563" />
+            <Text style={styles.detailLabel}>Price per kg</Text>
+            <Text style={styles.detailValue}>${trip.price_per_kg}</Text>
+          </View>
+          <View style={styles.detailItem}>
+            <User size={20} color="#4B5563" />
+            <Text style={styles.detailLabel}>Requests</Text>
+            <Text style={styles.detailValue}>{trip.requests.count}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Description */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Description</Text>
+        <Text style={styles.description}>{trip.description}</Text>
+      </View>
+
+      {/* Action Buttons */}
+      <View style={styles.actionButtons}>
+        <TouchableOpacity style={styles.primaryButton}>
+          <Text style={styles.primaryButtonText}>Request to Ship</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-  },
-  loadingText: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 16,
-    color: '#64748B',
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    padding: 16,
-  },
-  errorText: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 16,
-    color: '#EF4444',
-    marginBottom: 16,
   },
   header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 60,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    padding: 16,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F1F5F9',
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 8,
   },
-  title: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 20,
-    color: '#1F2937',
-    marginLeft: 12,
-    flex: 1,
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
-  editButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#EFF6FF',
-    borderRadius: 6,
-  },
-  editButtonText: {
-    fontFamily: 'Inter-SemiBold',
+  statusText: {
+    color: '#FFFFFF',
     fontSize: 14,
-    color: '#3B82F6',
+    fontWeight: '600',
   },
-  content: {
-    flex: 1,
-  },
-  routeCard: {
-    margin: 16,
+  section: {
     padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
-  routeHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  routeInfo: {
     marginBottom: 12,
   },
-  routeText: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 18,
-    color: '#1F2937',
+  locationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  locationText: {
     marginLeft: 8,
+    fontSize: 16,
+    color: '#1F2937',
   },
   dateContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   dateText: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    color: '#64748B',
     marginLeft: 8,
-  },
-  flightInfo: {
-    fontFamily: 'Inter-Medium',
     fontSize: 14,
-    color: '#64748B',
-    marginTop: 8,
-  },
-  section: {
-    marginHorizontal: 16,
-    marginBottom: 24,
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    color: '#4B5563',
   },
   sectionTitle: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: '600',
     color: '#1F2937',
     marginBottom: 12,
   },
-  spaceDetails: {
-    backgroundColor: '#F8FAFC',
-    padding: 12,
-    borderRadius: 8,
-  },
-  detailText: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    color: '#64748B',
-    marginBottom: 4,
-  },
-  price: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 24,
-    color: '#3B82F6',
-  },
-  categoriesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 8,
-  },
-  categoryTag: {
-    backgroundColor: '#EFF6FF',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  categoryText: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 12,
-    color: '#3B82F6',
-  },
-  restrictionsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEF2F2',
-    padding: 12,
-    borderRadius: 8,
-  },
-  restrictionsText: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    color: '#EF4444',
-    marginLeft: 8,
-    flex: 1,
-  },
-  sharerContainer: {
+  profileContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  sharerImage: {
+  avatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
   },
-  sharerInfo: {
-    flex: 1,
+  profileInfo: {
     marginLeft: 12,
+    flex: 1,
   },
-  sharerName: {
-    fontFamily: 'Inter-SemiBold',
+  name: {
     fontSize: 16,
+    fontWeight: '600',
     color: '#1F2937',
+    marginBottom: 4,
   },
-  sharerRating: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    color: '#64748B',
-  },
-  contactButton: {
-    backgroundColor: '#3B82F6',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 6,
-  },
-  contactButtonText: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 14,
-    color: '#FFFFFF',
-  },
-  itemCard: {
+  messageButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    padding: 12,
+    backgroundColor: '#3B82F6',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 8,
-    marginBottom: 8,
+    alignSelf: 'flex-start',
   },
-  itemImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
+  messageButtonText: {
+    color: '#FFFFFF',
+    marginLeft: 4,
+    fontSize: 14,
+    fontWeight: '500',
   },
-  itemInfo: {
+  detailsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  detailItem: {
+    alignItems: 'center',
     flex: 1,
-    marginLeft: 12,
   },
-  itemName: {
-    fontFamily: 'Inter-SemiBold',
+  detailLabel: {
     fontSize: 14,
+    color: '#4B5563',
+    marginTop: 4,
+  },
+  detailValue: {
+    fontSize: 16,
+    fontWeight: '600',
     color: '#1F2937',
+    marginTop: 2,
   },
-  itemSize: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 12,
-    color: '#64748B',
-  },
-  itemPrice: {
-    fontFamily: 'Inter-SemiBold',
+  description: {
     fontSize: 14,
-    color: '#3B82F6',
+    color: '#4B5563',
+    lineHeight: 20,
   },
-  footer: {
+  actionButtons: {
     padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    paddingBottom: 32,
   },
-  requestButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+  primaryButton: {
     backgroundColor: '#3B82F6',
-    paddingVertical: 16,
+    paddingVertical: 12,
     borderRadius: 8,
+    alignItems: 'center',
   },
-  requestButtonText: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 16,
+  primaryButtonText: {
     color: '#FFFFFF',
-    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

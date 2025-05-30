@@ -7,6 +7,7 @@ import { useFonts } from 'expo-font';
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { ChatProvider } from '@/contexts/ChatContext';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -23,11 +24,11 @@ function RootLayoutNav() {
       <StatusBar style="auto" />
       <Stack screenOptions={{ headerShown: false }}>
         {!session ? (
-          <Stack.Screen name="(auth)\" options={{ headerShown: false }} />
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         ) : (
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
+            <Stack.Screen name="(chat)/[id]" options={{ headerShown: false }} />
             <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
           </Stack>
         )}
@@ -60,7 +61,9 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <RootLayoutNav />
+      <ChatProvider>
+        <RootLayoutNav />
+      </ChatProvider>
     </AuthProvider>
   );
 }
